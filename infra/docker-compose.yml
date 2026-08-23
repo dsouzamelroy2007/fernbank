@@ -1,0 +1,141 @@
+name: fernbank
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-fernbank}
+      POSTGRES_USER: ${DB_USER:-fernbank}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-fernbank}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-fernbank} -d ${DB_NAME:-fernbank}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  backend:
+    build:
+      context: ../backend
+    image: fernbank-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # `demo` seeds 3 customers/accounts/transactions on first boot (idempotent - a
+      # restart doesn't re-seed) via DemoDataSeeder. This compose stack IS this
+      # project's demo environment; the Render deploy uses `docker` alone so
+      # a real deployment never gets fake customers.
+      SPRING_PROFILES_ACTIVE: docker,demo
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-fernbank}
+      DB_USER: ${DB_USER:-fernbank}
+      DB_PASSWORD: ${DB_PASSWORD:-fernbank}
+      SERVER_PORT: 8080
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8080}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      MFA_SECRET_ENCRYPTION_KEY: ${MFA_SECRET_ENCRYPTION_KEY:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
+      ACTUATOR_PROMETHEUS_USER: ${ACTUATOR_PROMETHEUS_USER:-prometheus}
+      ACTUATOR_PROMETHEUS_PASSWORD: ${ACTUATOR_PROMETHEUS_PASSWORD:-prometheus}
+      # Must match the bff's INTERNAL_SERVICE_KEY below - see AuthController's
+      # resolveClientIp comment. Blank by default: locally, backend and bff share one
+      # Docker network anyway, so per-IP login rate limiting granularity doesn't matter.
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
+    ports:
+      - "8080:8080"
+
+  bff:
+    build:
+      context: ../bff
+    image: fernbank-bff
+    depends_on:
+      - backend
+    environment:
+      PORT: 4000
+      BACKEND_INTERNAL_BASE_URL: http://backend:8080
+      BFF_CORS_ALLOWED_ORIGINS: ${BFF_CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
+      BFF_SESSION_ENCRYPTION_KEY: ${BFF_SESSION_ENCRYPTION_KEY:-}
+      BFF_SESSION_COOKIE_DOMAIN: ${BFF_SESSION_COOKIE_DOMAIN:-}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
+    ports:
+      - "${BFF_PORT:-4000}:4000"
+
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        NEXT_PUBLIC_BFF_BASE_URL: ${NEXT_PUBLIC_BFF_BASE_URL:-http://localhost:4000}
+    image: fernbank-web
+    depends_on:
+      - bff
+    environment:
+      NEXT_PUBLIC_BFF_BASE_URL: ${NEXT_PUBLIC_BFF_BASE_URL:-http://localhost:4000}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+
+  # --- Local-only observability stack. Not part of the default `docker compose up` -
+  # opt in with `docker compose --profile observability up`. Nothing here ships to the
+  # Render deploy; production observability is Render's own logs/metrics (see
+  # docs/architecture.md).
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    profiles: ["observability"]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+
+  loki:
+    image: grafana/loki:3.3.0
+    profiles: ["observability"]
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+    ports:
+      - "3100:3100"
+
+  promtail:
+    image: grafana/promtail:3.3.0
+    profiles: ["observability"]
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    profiles: ["observability"]
+    environment:
+      # Anonymous admin access is fine here - this profile only ever binds to
+      # localhost in local dev, never deployed. admin/admin also works if anonymous
+      # access is disabled some other way.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3300:3000"
+    depends_on:
+      - prometheus
+      - loki
+
+volumes:
+  postgres-data:

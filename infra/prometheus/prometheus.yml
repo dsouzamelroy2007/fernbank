@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: fernbank-backend
+    metrics_path: /actuator/prometheus
+    # /actuator/prometheus requires auth (every other /actuator/** path needs an
+    # ADMIN JWT; this one accepts HTTP Basic instead, since Prometheus has no OAuth2
+    # client-credentials flow) - matches the local-dev defaults in application.yml /
+    # infra/.env.example. Override both if you change ACTUATOR_PROMETHEUS_PASSWORD.
+    basic_auth:
+      username: prometheus
+      password: prometheus
+    static_configs:
+      - targets: ["backend:8080"]

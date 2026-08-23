@@ -1,0 +1,58 @@
+services:
+  - name: fernbank-api
+    type: web
+    runtime: docker
+    plan: free
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SERVER_PORT
+        value: "8080"
+      - key: SPRING_PROFILES_ACTIVE
+        value: docker,prod
+      - key: JWT_ISSUER
+        value: https://fernbank-api.onrender.com   # confirm exact assigned URL, adjust if Render suffixes it
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: JWT_PRIVATE_KEY
+        sync: false
+      - key: JWT_PUBLIC_KEY
+        sync: false
+      - key: MFA_SECRET_ENCRYPTION_KEY
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false   # the Vercel domain
+      - key: ACTUATOR_PROMETHEUS_USER
+        sync: false
+      - key: ACTUATOR_PROMETHEUS_PASSWORD
+        sync: false
+      - key: INTERNAL_SERVICE_KEY
+        sync: false   # must be the SAME value as fernbank-bff's INTERNAL_SERVICE_KEY below
+
+  - name: fernbank-bff
+    type: web
+    runtime: docker
+    plan: free
+    dockerfilePath: bff/Dockerfile
+    dockerContext: bff
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "4000"
+      - key: BACKEND_INTERNAL_BASE_URL
+        value: https://fernbank-api.onrender.com   # backend's PUBLIC Render URL - no private network on the free plan
+      - key: BFF_SESSION_ENCRYPTION_KEY
+        sync: false
+      - key: BFF_CORS_ALLOWED_ORIGINS
+        sync: false   # the Vercel domain
+      - key: INTERNAL_SERVICE_KEY
+        sync: false   # must be the SAME value as fernbank-api's INTERNAL_SERVICE_KEY above
