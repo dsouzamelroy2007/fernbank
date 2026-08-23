@@ -1,0 +1,76 @@
+name: backend-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    # Needed for the coverage-badge commit-back step below - many repos default
+    # GITHUB_TOKEN to read-only, which would otherwise fail that one step silently
+    # after every other step (including the actual test run) already passed.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # ./gradlew check already runs unit + Testcontainers integration tests,
+      # ArchUnit layering rules, the JaCoCo coverage gate, Checkstyle, and OWASP
+      # dependency-check (see README's Testing section) - CI runs the one command
+      # that already exists locally, nothing new invented for the pipeline.
+      - name: ./gradlew check
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: ./gradlew check --no-daemon
+
+      - name: Upload JaCoCo report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jacoco-report
+          path: backend/build/reports/jacoco/test/jacocoTestReport.xml
+          retention-days: 14
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: backend/build/reports/tests/test
+          retention-days: 14
+
+      - name: Generate coverage badge
+        if: github.ref == 'refs/heads/main'
+        uses: cicirello/jacoco-badge-generator@v2
+        with:
+          jacoco-csv-file: backend/build/reports/jacoco/test/jacocoTestReport.csv
+          badges-directory: badges
+
+      - name: Commit updated coverage badge
+        if: github.ref == 'refs/heads/main'
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: badges/*.svg
+          message: "chore: update backend coverage badge [skip ci]"
+          default_author: github_actions

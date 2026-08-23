@@ -1,0 +1,97 @@
+name: frontend-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - "bff/**"
+      - "backend/**"
+      - "infra/**"
+      - ".github/workflows/frontend-ci.yml"
+  pull_request:
+    paths:
+      - "frontend/**"
+      - "bff/**"
+      - "backend/**"
+      - "infra/**"
+      - ".github/workflows/frontend-ci.yml"
+
+jobs:
+  lint-typecheck-unit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - name: Build (against the Docker-Compose default BFF URL)
+        run: npm run build
+        env:
+          NEXT_PUBLIC_BFF_BASE_URL: http://localhost:4000
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: lint-typecheck-unit
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Playwright suite drives the real 5-service stack, same as this project's
+      # own verification passes throughout development - no mocked backend/bff.
+      - name: Bring up the full stack
+        run: docker compose -f infra/docker-compose.yml up -d --build
+
+      - name: Wait for backend, bff, and frontend to answer
+        # Ports here are docker-compose's own defaults (WEB_PORT=3000, BFF_PORT=4000)
+        # — a fresh CI checkout has no infra/.env to remap them.
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/actuator/health >/dev/null 2>&1 \
+              && curl -sf http://localhost:4000/health >/dev/null 2>&1 \
+              && curl -sf http://localhost:3000 >/dev/null 2>&1; then
+              echo "stack is up"; exit 0
+            fi
+            sleep 2
+          done
+          echo "stack did not become healthy in time" >&2
+          docker compose -f infra/docker-compose.yml logs
+          exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps and Playwright browsers
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright e2e
+        working-directory: frontend
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 14
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: docker compose -f infra/docker-compose.yml logs

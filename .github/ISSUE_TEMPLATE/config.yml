@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/dsouzamelroy2007/fernbank/security/advisories/new
+    about: Please report suspected security issues privately via GitHub Security Advisories rather than a public issue, even though this is a play-money educational project.
