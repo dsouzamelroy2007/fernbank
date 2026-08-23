@@ -1,0 +1,373 @@
+{
+  "info": {
+    "name": "fernbank",
+    "description": "fernbank ledger API - educational project, play money only. Run 'Auth > Register' then 'Auth > Login' first; the login test script captures accessToken/refreshToken into collection variables that the rest of the requests reuse. Every mutating request sends a fresh {{$guid}} as its Idempotency-Key.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "email", "value": "ada+{{$timestamp}}@example.com" },
+    { "key": "password", "value": "correct horse battery staple" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "sourceAccountId", "value": "" },
+    { "key": "destinationAccountId", "value": "" },
+    { "key": "payeeId", "value": "" },
+    { "key": "adminAccessToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Ada Lovelace\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "register"] }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', body.refreshToken);",
+                  "pm.test('login succeeded', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "login"] }
+          }
+        },
+        {
+          "name": "Refresh",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', body.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "refresh"] }
+          }
+        },
+        {
+          "name": "MFA Enroll",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/mfa/enroll", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "mfa", "enroll"] }
+          }
+        },
+        {
+          "name": "MFA Enroll Confirm",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"000000\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/mfa/enroll/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "mfa", "enroll", "confirm"]
+            }
+          }
+        },
+        {
+          "name": "MFA Verify",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"mfaToken\": \"\",\n  \"code\": \"000000\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/mfa/verify", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "mfa", "verify"] }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/logout", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "logout"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Accounts",
+      "item": [
+        {
+          "name": "Open Account (source)",
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["pm.collectionVariables.set('sourceAccountId', pm.response.json().id);"] }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"type\": \"CHECKING\",\n  \"currency\": \"USD\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/accounts", "host": ["{{baseUrl}}"], "path": ["api", "v1", "accounts"] }
+          }
+        },
+        {
+          "name": "Open Account (destination)",
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["pm.collectionVariables.set('destinationAccountId', pm.response.json().id);"] }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"type\": \"SAVINGS\",\n  \"currency\": \"USD\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/accounts", "host": ["{{baseUrl}}"], "path": ["api", "v1", "accounts"] }
+          }
+        },
+        {
+          "name": "List Accounts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/accounts", "host": ["{{baseUrl}}"], "path": ["api", "v1", "accounts"] }
+          }
+        },
+        {
+          "name": "Get Account",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{sourceAccountId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "{{sourceAccountId}}"]
+            }
+          }
+        },
+        {
+          "name": "Deposit",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": {\"amount\": \"250.00\", \"currency\": \"USD\"},\n  \"description\": \"seed\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{sourceAccountId}}/deposits",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "{{sourceAccountId}}", "deposits"]
+            }
+          }
+        },
+        {
+          "name": "Withdraw",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": {\"amount\": \"20.00\", \"currency\": \"USD\"},\n  \"description\": \"atm\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{sourceAccountId}}/withdrawals",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "{{sourceAccountId}}", "withdrawals"]
+            }
+          }
+        },
+        {
+          "name": "Statement",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{sourceAccountId}}/statement?pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "{{sourceAccountId}}", "statement"],
+              "query": [{ "key": "pageSize", "value": "20" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transfers",
+      "item": [
+        {
+          "name": "Transfer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceAccountId\": \"{{sourceAccountId}}\",\n  \"destinationAccountId\": \"{{destinationAccountId}}\",\n  \"amount\": {\"amount\": \"40.00\", \"currency\": \"USD\"},\n  \"description\": \"rent\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/transfers", "host": ["{{baseUrl}}"], "path": ["api", "v1", "transfers"] }
+          }
+        },
+        {
+          "name": "Schedule Transfer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceAccountId\": \"{{sourceAccountId}}\",\n  \"destinationAccountId\": \"{{destinationAccountId}}\",\n  \"amount\": {\"amount\": \"10.00\", \"currency\": \"USD\"},\n  \"description\": \"next month\",\n  \"scheduledFor\": \"2027-01-01T00:00:00Z\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/transfers/scheduled", "host": ["{{baseUrl}}"], "path": ["api", "v1", "transfers", "scheduled"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payees",
+      "item": [
+        {
+          "name": "Add Payee",
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["pm.collectionVariables.set('payeeId', pm.response.json().id);"] }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Landlord\",\n  \"targetAccountNumber\": \"<a real FB... account number>\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/payees", "host": ["{{baseUrl}}"], "path": ["api", "v1", "payees"] }
+          }
+        },
+        {
+          "name": "List Payees",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/payees", "host": ["{{baseUrl}}"], "path": ["api", "v1", "payees"] }
+          }
+        },
+        {
+          "name": "Delete Payee",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payees/{{payeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "payees", "{{payeeId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "Requires a user with ROLE_ADMIN. There is no self-service way to grant that role yet (Phase 4 scope) - grant it directly in the DB: UPDATE via `INSERT INTO user_role (user_id, role) VALUES ('<user id>', 'ADMIN')`, then log in again so the new token carries the role.",
+      "item": [
+        {
+          "name": "Ping",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/ping", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "ping"] }
+          }
+        },
+        {
+          "name": "Reconciliation",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/reconciliation", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "reconciliation"] }
+          }
+        },
+        {
+          "name": "Freeze Account",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"reason\": \"suspected fraud\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/accounts/{{sourceAccountId}}/freeze",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "accounts", "{{sourceAccountId}}", "freeze"]
+            }
+          }
+        },
+        {
+          "name": "Audit Events",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/audit-events?pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "audit-events"],
+              "query": [{ "key": "pageSize", "value": "20" }]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

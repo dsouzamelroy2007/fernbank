@@ -1,0 +1,2057 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "fernbank ledger API",
+        "description": "Portfolio-quality banking/ledger API. Educational project - play money only, not a real financial service.",
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
+        "version": "v1"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8080",
+            "description": "Local development"
+        }
+    ],
+    "security": [
+        {
+            "bearerAuth": []
+        }
+    ],
+    "tags": [
+        {
+            "name": "Accounts",
+            "description": "Open, list, and read accounts; deposits, withdrawals, statements."
+        },
+        {
+            "name": "Transfers",
+            "description": "Internal transfers, including scheduled transfers."
+        },
+        {
+            "name": "Payees",
+            "description": "Saved transfer recipients."
+        },
+        {
+            "name": "Admin",
+            "description": "ROLE_ADMIN-only: reconciliation, account freeze, audit log."
+        },
+        {
+            "name": "Auth",
+            "description": "Registration, login, token refresh, logout, step-up elevation."
+        },
+        {
+            "name": "MFA",
+            "description": "TOTP enrollment and verification."
+        },
+        {
+            "name": "Profile",
+            "description": "The authenticated user's own identity."
+        },
+        {
+            "name": "JWKS",
+            "description": "Public JSON Web Key Set for verifying access tokens."
+        }
+    ],
+    "paths": {
+        "/api/v1/transfers": {
+            "post": {
+                "tags": [
+                    "Transfers"
+                ],
+                "summary": "Transfer money between two accounts",
+                "description": "Destination is either destinationAccountId or destinationAccountNumber, never both. Transfers above the step-up threshold require a recent MFA elevation (POST /api/v1/auth/step-up) or fail with 403 step-up-required.",
+                "operationId": "transfer",
+                "parameters": [
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "description": "Client-generated UUID. Replaying the same key with the same request body returns the original response unchanged; the same key with a different body is a 409.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TransferRequest"
+                            },
+                            "examples": {
+                                "transfer-to-payee": {
+                                    "description": "transfer-to-payee",
+                                    "value": {
+                                        "sourceAccountId": "3c1f2e2a-4b8e-4b0a-9b7a-1f2c3d4e5f60",
+                                        "destinationAccountNumber": "FB1234567890123456789012",
+                                        "amount": {
+                                            "amount": "125.50",
+                                            "currency": "USD"
+                                        },
+                                        "description": "Rent"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Transfer applied",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TransferResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/UnprocessableContent"
+                    }
+                }
+            }
+        },
+        "/api/v1/transfers/scheduled": {
+            "post": {
+                "tags": [
+                    "Transfers"
+                ],
+                "summary": "Schedule a future-dated transfer between two accounts",
+                "description": "Only supports destinationAccountId (not destinationAccountNumber). Runs on an hourly-scheduled batch once scheduledFor is due; step-up elevation is not checked for scheduled transfers.",
+                "operationId": "scheduleTransfer",
+                "parameters": [
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "description": "Client-generated UUID. Replaying the same key with the same request body returns the original response unchanged; the same key with a different body is a 409.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ScheduleTransferRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Transfer scheduled",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ScheduledTransferResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/UnprocessableContent"
+                    }
+                }
+            }
+        },
+        "/api/v1/payees": {
+            "get": {
+                "tags": [
+                    "Payees"
+                ],
+                "summary": "List every payee saved by the authenticated customer",
+                "operationId": "listPayees",
+                "responses": {
+                    "200": {
+                        "description": "The customer's saved payees",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/PayeeResponse"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Payees"
+                ],
+                "summary": "Save a payee for the authenticated customer",
+                "operationId": "addPayee",
+                "parameters": [
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "description": "Client-generated UUID. Replaying the same key with the same request body returns the original response unchanged; the same key with a different body is a 409.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PayeeRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Payee saved",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PayeeResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    }
+                }
+            }
+        },
+        "/api/v1/me/password": {
+            "post": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Change the authenticated user's own password",
+                "operationId": "changePassword",
+                "parameters": [
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "description": "Client-generated UUID. Replaying the same key with the same request body returns the original response unchanged; the same key with a different body is a 409.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ChangePasswordRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "Password changed"
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/step-up": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Elevate the current session with a fresh MFA code",
+                "description": "Required before a transfer at or above the step-up threshold will be accepted.",
+                "operationId": "stepUp",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StepUpRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Elevated access token",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StepUpResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/register": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Register a new customer and user",
+                "operationId": "register",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RegisterRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "User registered",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RegisterResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/refresh": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Rotate an access/refresh token pair",
+                "description": "Reusing an already-rotated refresh token is treated as theft: it revokes the entire token family, including the legitimately-rotated successor.",
+                "operationId": "refresh",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RefreshRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "A new access/refresh token pair",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TokenResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/mfa/verify": {
+            "post": {
+                "tags": [
+                    "MFA"
+                ],
+                "summary": "Complete login for an MFA-enrolled user",
+                "description": "Exchanges the mfaToken challenge from POST /api/v1/auth/login plus a TOTP or single-use recovery code for real access/refresh tokens.",
+                "operationId": "verify",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MfaVerifyRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Authenticated",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoginResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/mfa/enroll": {
+            "post": {
+                "tags": [
+                    "MFA"
+                ],
+                "summary": "Begin TOTP enrollment",
+                "description": "Returns a new secret and otpauth:// URI (render as a QR code); not yet active until confirmed via POST .../enroll/confirm.",
+                "operationId": "enroll",
+                "responses": {
+                    "200": {
+                        "description": "TOTP secret and otpauth URI",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MfaEnrollResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/mfa/enroll/confirm": {
+            "post": {
+                "tags": [
+                    "MFA"
+                ],
+                "summary": "Confirm TOTP enrollment with a code from the authenticator app",
+                "description": "Activates MFA and returns one-time recovery codes - shown to the user exactly once.",
+                "operationId": "confirmEnroll",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MfaEnrollConfirmRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "MFA activated; recovery codes",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MfaEnrollConfirmResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/logout": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Revoke a refresh token",
+                "description": "Idempotent - an unknown or already-revoked token still returns 204.",
+                "operationId": "logout",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RefreshRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "Token revoked (or already wasn't valid)"
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Log in with email and password",
+                "description": "Repeated failures trip a rate limit and lock the account (429/423-style lockout surfaced as 401 on subsequent attempts). If MFA is enabled, returns a challenge status instead of tokens - see LoginResponse.status.",
+                "operationId": "login",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Authenticated, or an MFA challenge issued",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoginResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/v1/accounts": {
+            "get": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "List every account owned by the authenticated customer",
+                "operationId": "listAccounts",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/AccountResponse"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "Open a new account for the authenticated customer",
+                "description": "The account is always opened for the caller's own customer - there is no way to open an account for anyone else.",
+                "operationId": "openAccount",
+                "parameters": [
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "description": "Client-generated UUID. Replaying the same key with the same request body returns the original response unchanged; the same key with a different body is a 409.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OpenAccountRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Account opened",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AccountResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    }
+                }
+            }
+        },
+        "/api/v1/accounts/{accountId}/withdrawals": {
+            "post": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "Withdraw from an account owned by the authenticated customer",
+                "description": "Blocked with 409 if the account isn't ACTIVE (e.g. FROZEN).",
+                "operationId": "withdraw",
+                "parameters": [
+                    {
+                        "name": "accountId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "description": "Client-generated UUID. Replaying the same key with the same request body returns the original response unchanged; the same key with a different body is a 409.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DepositWithdrawRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Withdrawal applied",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MoneyMovementResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/UnprocessableContent"
+                    }
+                }
+            }
+        },
+        "/api/v1/accounts/{accountId}/deposits": {
+            "post": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "Deposit into an account owned by the authenticated customer",
+                "description": "Allowed even on a FROZEN account - only debits (withdrawals, transfers) are blocked.",
+                "operationId": "deposit",
+                "parameters": [
+                    {
+                        "name": "accountId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "description": "Client-generated UUID. Replaying the same key with the same request body returns the original response unchanged; the same key with a different body is a 409.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DepositWithdrawRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Deposit applied",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MoneyMovementResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/accounts/{accountId}/freeze": {
+            "patch": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Freeze an account",
+                "description": "Not scoped to any particular customer - an admin may freeze any account by id.",
+                "operationId": "freeze",
+                "parameters": [
+                    {
+                        "name": "accountId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "description": "Client-generated UUID. Replaying the same key with the same request body returns the original response unchanged; the same key with a different body is a 409.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FreezeAccountRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Account frozen",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AccountResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    }
+                }
+            }
+        },
+        "/oauth2/jwks": {
+            "get": {
+                "tags": [
+                    "JWKS"
+                ],
+                "summary": "Public JSON Web Key Set",
+                "description": "Public key material only - safe to expose without authentication, used by resource servers/clients to verify access-token signatures.",
+                "operationId": "jwks",
+                "responses": {
+                    "200": {
+                        "description": "The current public JWK set",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/me": {
+            "get": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Get the authenticated user's own identity",
+                "description": "Resolved entirely from the JWT subject - never from a client-supplied id.",
+                "operationId": "me",
+                "responses": {
+                    "200": {
+                        "description": "The caller's own profile",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MeResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/me/sessions": {
+            "get": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "List the authenticated user's own active sessions (refresh tokens)",
+                "description": "No device/IP metadata is stored, so a 'this device' flag can't be shown - only issued/expiry times.",
+                "operationId": "listSessions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/SessionResponse"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/me/login-history": {
+            "get": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Cursor-paginated login history for the authenticated user",
+                "description": "Keyset pagination: pass the previous page's nextCursor to fetch the next page. Scoped to the caller's own auth-relevant events only.",
+                "operationId": "loginHistory",
+                "parameters": [
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "pageSize",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CursorPageAuditEventResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/reconciliation": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Run a full ledger reconciliation check",
+                "description": "Verifies every currency's ledger entries sum to zero and every account balance matches its ledger entries. Also runs hourly on a schedule.",
+                "operationId": "reconciliation",
+                "responses": {
+                    "200": {
+                        "description": "Reconciliation report, healthy or listing discrepancies",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReconciliationReport"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/ping": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Health-check-style ping proving RBAC works",
+                "description": "ROLE_ADMIN only.",
+                "operationId": "ping",
+                "responses": {
+                    "200": {
+                        "description": "pong",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/audit-events": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Cursor-paginated audit event log",
+                "description": "Keyset pagination: pass the previous page's nextCursor to fetch the next page.",
+                "operationId": "auditEvents",
+                "parameters": [
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "pageSize",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of audit events",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CursorPageAuditEventResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    }
+                }
+            }
+        },
+        "/api/v1/accounts/{accountId}": {
+            "get": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "Get one account owned by the authenticated customer",
+                "description": "Returns 404 (not 403) for a cross-customer accountId - existence is never leaked. Supports conditional GETs via ETag/If-None-Match.",
+                "operationId": "getAccount",
+                "parameters": [
+                    {
+                        "name": "accountId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "If-None-Match",
+                        "in": "header",
+                        "description": "ETag from a previous response; a match returns 304 with no body",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The account, with an ETag header",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AccountResponse"
+                                }
+                            }
+                        }
+                    },
+                    "304": {
+                        "description": "Not Modified - the supplied If-None-Match matches the current ETag",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AccountResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                }
+            }
+        },
+        "/api/v1/accounts/{accountId}/statement": {
+            "get": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "Get a cursor-paginated statement of ledger entries for one account",
+                "description": "Keyset pagination: pass the previous page's nextCursor to fetch the next page.",
+                "operationId": "getStatement",
+                "parameters": [
+                    {
+                        "name": "accountId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "pageSize",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of statement entries",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CursorPageStatementEntryResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                }
+            }
+        },
+        "/api/v1/accounts/{accountId}/statement/export": {
+            "get": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "Export a full-range statement as CSV or PDF",
+                "description": "Unpaginated - returns every entry in [from,to], capped at 10,000 rows; narrow the range if the cap is exceeded.",
+                "operationId": "exportStatement",
+                "parameters": [
+                    {
+                        "name": "accountId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "format",
+                        "in": "query",
+                        "description": "csv or pdf",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "csv"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The exported statement file",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "byte"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                }
+            }
+        },
+        "/api/v1/payees/{payeeId}": {
+            "delete": {
+                "tags": [
+                    "Payees"
+                ],
+                "summary": "Delete a payee owned by the authenticated customer",
+                "description": "Returns 404 (not 403) for a cross-customer payeeId - existence is never leaked.",
+                "operationId": "deletePayee",
+                "parameters": [
+                    {
+                        "name": "payeeId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Payee deleted"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                }
+            }
+        },
+        "/api/v1/me/sessions/{sessionId}": {
+            "delete": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Revoke one of the authenticated user's own sessions",
+                "description": "Idempotent - an unknown or already-revoked session id still returns 204, same as logout. A session id belonging to another user returns 404, not 403 - existence is never leaked.",
+                "operationId": "revokeSession",
+                "parameters": [
+                    {
+                        "name": "sessionId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Session revoked (or already wasn't active)"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ProblemDetail": {
+                "description": "RFC 9457 Problem Details, as produced by every error response in this API.",
+                "properties": {
+                    "type": {
+                        "format": "uri",
+                        "example": "https://fernbank.dev/problems/insufficient-funds"
+                    },
+                    "title": {
+                        "example": "Insufficient Funds"
+                    },
+                    "status": {
+                        "format": "int32",
+                        "example": 422
+                    },
+                    "detail": {
+                        "example": "Account 3c1f2e2a-... has insufficient funds"
+                    },
+                    "instance": {
+                        "format": "uri"
+                    },
+                    "correlationId": {
+                        "format": "uuid",
+                        "description": "Echoes the X-Correlation-Id request header; auto-assigned if absent."
+                    }
+                }
+            },
+            "MoneyDto": {
+                "type": "object",
+                "properties": {
+                    "amount": {
+                        "type": "string",
+                        "description": "Decimal string, using the currency's own minor-unit precision (e.g. 2 places for USD) - must be strictly positive.",
+                        "example": 125.5,
+                        "minLength": 1
+                    },
+                    "currency": {
+                        "type": "string",
+                        "description": "ISO-4217 currency code.",
+                        "example": "USD",
+                        "minLength": 1
+                    }
+                }
+            },
+            "TransferRequest": {
+                "type": "object",
+                "description": "Exactly one of destinationAccountId or destinationAccountNumber must be provided, never both or neither - enforced at request-handling time, not by field validation, and rejected with a 400 bad-request if violated.",
+                "properties": {
+                    "sourceAccountId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "destinationAccountId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Destination by account id - mutually exclusive with destinationAccountNumber."
+                    },
+                    "destinationAccountNumber": {
+                        "type": "string",
+                        "description": "Destination by account number - mutually exclusive with destinationAccountId."
+                    },
+                    "amount": {
+                        "$ref": "#/components/schemas/MoneyDto"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "sourceAccountId"
+                ]
+            },
+            "TransferResponse": {
+                "type": "object",
+                "properties": {
+                    "transactionId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "sourceAccountId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "sourceNewBalance": {
+                        "$ref": "#/components/schemas/MoneyDto"
+                    },
+                    "destinationAccountId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "destinationNewBalance": {
+                        "$ref": "#/components/schemas/MoneyDto"
+                    },
+                    "executedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ScheduleTransferRequest": {
+                "type": "object",
+                "properties": {
+                    "sourceAccountId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "destinationAccountId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "amount": {
+                        "$ref": "#/components/schemas/MoneyDto"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "scheduledFor": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Must be in the future."
+                    }
+                },
+                "required": [
+                    "amount",
+                    "destinationAccountId",
+                    "scheduledFor",
+                    "sourceAccountId"
+                ]
+            },
+            "ScheduledTransferResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "sourceAccountId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "destinationAccountId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "amount": {
+                        "$ref": "#/components/schemas/MoneyDto"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "scheduledFor": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "PENDING",
+                            "EXECUTED",
+                            "FAILED",
+                            "CANCELLED"
+                        ]
+                    }
+                }
+            },
+            "PayeeRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "targetAccountNumber": {
+                        "type": "string",
+                        "description": "IBAN-shaped account number.",
+                        "example": "FB1234567890123456789012",
+                        "minLength": 1
+                    }
+                }
+            },
+            "PayeeResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "targetAccountNumber": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ChangePasswordRequest": {
+                "type": "object",
+                "properties": {
+                    "currentPassword": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "newPassword": {
+                        "type": "string",
+                        "description": "Minimum 8 characters.",
+                        "maxLength": 2147483647,
+                        "minLength": 8
+                    }
+                }
+            },
+            "StepUpRequest": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            "StepUpResponse": {
+                "type": "object",
+                "properties": {
+                    "accessToken": {
+                        "type": "string"
+                    }
+                }
+            },
+            "RegisterRequest": {
+                "type": "object",
+                "properties": {
+                    "fullName": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "email": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "password": {
+                        "type": "string",
+                        "description": "Minimum 8 characters.",
+                        "maxLength": 2147483647,
+                        "minLength": 8
+                    }
+                }
+            },
+            "RegisterResponse": {
+                "type": "object",
+                "properties": {
+                    "userId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "email": {
+                        "type": "string"
+                    }
+                }
+            },
+            "RefreshRequest": {
+                "type": "object",
+                "properties": {
+                    "refreshToken": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            "TokenResponse": {
+                "type": "object",
+                "properties": {
+                    "accessToken": {
+                        "type": "string"
+                    },
+                    "refreshToken": {
+                        "type": "string"
+                    }
+                }
+            },
+            "MfaVerifyRequest": {
+                "type": "object",
+                "properties": {
+                    "mfaToken": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "code": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            "LoginResponse": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "AUTHENTICATED",
+                            "MFA_REQUIRED"
+                        ]
+                    },
+                    "accessToken": {
+                        "type": "string"
+                    },
+                    "refreshToken": {
+                        "type": "string"
+                    },
+                    "mfaToken": {
+                        "type": "string"
+                    }
+                }
+            },
+            "MfaEnrollResponse": {
+                "type": "object",
+                "properties": {
+                    "secret": {
+                        "type": "string"
+                    },
+                    "otpAuthUri": {
+                        "type": "string"
+                    }
+                }
+            },
+            "MfaEnrollConfirmRequest": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            "MfaEnrollConfirmResponse": {
+                "type": "object",
+                "properties": {
+                    "recoveryCodes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "LoginRequest": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "password": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            "OpenAccountRequest": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "CHECKING",
+                            "SAVINGS",
+                            "SYSTEM"
+                        ]
+                    },
+                    "currency": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "required": [
+                    "type"
+                ]
+            },
+            "AccountResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "accountNumber": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "CHECKING",
+                            "SAVINGS",
+                            "SYSTEM"
+                        ]
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "ACTIVE",
+                            "FROZEN",
+                            "CLOSED"
+                        ]
+                    },
+                    "balance": {
+                        "$ref": "#/components/schemas/MoneyDto"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "DepositWithdrawRequest": {
+                "type": "object",
+                "properties": {
+                    "amount": {
+                        "$ref": "#/components/schemas/MoneyDto"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "amount"
+                ]
+            },
+            "MoneyMovementResponse": {
+                "type": "object",
+                "properties": {
+                    "transactionId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "accountId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "newBalance": {
+                        "$ref": "#/components/schemas/MoneyDto"
+                    },
+                    "executedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "FreezeAccountRequest": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            "MeResponse": {
+                "type": "object",
+                "properties": {
+                    "userId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "customerId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "fullName": {
+                        "type": "string"
+                    }
+                }
+            },
+            "SessionResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "issuedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "expiresAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "AuditEventResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "actorUserId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "eventType": {
+                        "type": "string"
+                    },
+                    "metadata": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object"
+                        }
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "CursorPageAuditEventResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AuditEventResponse"
+                        }
+                    },
+                    "nextCursor": {
+                        "type": "string"
+                    },
+                    "hasNext": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "ReconciliationDiscrepancy": {
+                "type": "object",
+                "properties": {
+                    "description": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ReconciliationReport": {
+                "type": "object",
+                "properties": {
+                    "discrepancies": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReconciliationDiscrepancy"
+                        }
+                    },
+                    "healthy": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "CursorPageStatementEntryResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/StatementEntryResponse"
+                        }
+                    },
+                    "nextCursor": {
+                        "type": "string"
+                    },
+                    "hasNext": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "StatementEntryResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "transactionId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "amount": {
+                        "$ref": "#/components/schemas/MoneyDto"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "responses": {
+            "BadRequest": {
+                "description": "Malformed request - bad input shape, missing header, or a business rule that isn't a field-level validation failure.",
+                "content": {
+                    "application/problem+json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/ProblemDetail"
+                        }
+                    }
+                }
+            },
+            "ValidationFailed": {
+                "description": "Request failed Bean Validation; the response's `errors` extension lists each field error.",
+                "content": {
+                    "application/problem+json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/ProblemDetail"
+                        }
+                    }
+                }
+            },
+            "Unauthorized": {
+                "description": "Missing, expired, tampered, or otherwise invalid credentials.",
+                "content": {
+                    "application/problem+json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/ProblemDetail"
+                        }
+                    }
+                }
+            },
+            "Forbidden": {
+                "description": "Authenticated, but not permitted to perform this action (wrong role, or step-up elevation required).",
+                "content": {
+                    "application/problem+json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/ProblemDetail"
+                        }
+                    }
+                }
+            },
+            "NotFound": {
+                "description": "The resource doesn't exist, or exists but isn't owned by the authenticated customer - identical response either way, so existence is never leaked.",
+                "content": {
+                    "application/problem+json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/ProblemDetail"
+                        }
+                    }
+                }
+            },
+            "Conflict": {
+                "description": "The resource is not in a state that allows this operation, or the same Idempotency-Key was reused with a different request body.",
+                "content": {
+                    "application/problem+json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/ProblemDetail"
+                        }
+                    }
+                }
+            },
+            "UnprocessableContent": {
+                "description": "The request is well-formed but violates a domain rule (e.g. insufficient funds, currency mismatch).",
+                "content": {
+                    "application/problem+json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/ProblemDetail"
+                        }
+                    }
+                }
+            },
+            "TooManyRequests": {
+                "description": "Rate limit exceeded.",
+                "content": {
+                    "application/problem+json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/ProblemDetail"
+                        }
+                    }
+                }
+            },
+            "InternalError": {
+                "description": "An unexpected server error. Never includes a stack trace or SQL - correlate via `correlationId`.",
+                "content": {
+                    "application/problem+json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/ProblemDetail"
+                        }
+                    }
+                }
+            }
+        },
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "name": "bearerAuth",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+    }
+}
