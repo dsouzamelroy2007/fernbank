@@ -1,0 +1,10 @@
+# Structured JSON logging for the containerized/deployed path - Boot's built-in
+# support (org.springframework.boot.logging.structured), no extra dependency. MDC
+# context (including CorrelationIdFilter's "correlationId" key) is included
+# automatically in ECS-formatted output. "ecs" is a neutral default; switch to
+# "logstash" or "gelf" here if Phase 9 picks a different log aggregation stack - see
+# docs/PHASE_PLAN.md's observability notes.
+logging:
+  structured:
+    format:
+      console: ecs

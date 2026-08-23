@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+
+	<suppress>
+		<notes><![CDATA[
+		CVE-2026-54291 (CVSS >= 7). org.postgresql:postgresql is pinned to 42.7.11 by
+		Spring Boot 4.0.7's dependency-management BOM ({strictly 42.7.11}) - see ADR
+		0002 for why this app is on Boot 4.0.7. No newer Boot patch line has been
+		verified against this project's stack as of 2026-08-20. Forcing a driver
+		version outside Boot's tested pairing is a real compatibility risk that needs
+		its own verification pass, not a silent override. Scoped to the exact pinned
+		version so this suppression stops matching the moment the driver is upgraded.
+		Review by: 2026-11-18.
+		]]></notes>
+		<packageUrl regex="false">pkg:maven/org.postgresql/postgresql@42.7.11</packageUrl>
+		<cve>CVE-2026-54291</cve>
+	</suppress>
+
+	<suppress>
+		<notes><![CDATA[
+		Six CVSS >= 7 findings (CVE-2026-53404, CVE-2026-53434, CVE-2026-55276,
+		CVE-2026-59083, CVE-2026-59084, CVE-2026-66299) against the embedded Tomcat
+		bundled by Spring Boot 4.0.7's spring-boot-tomcat starter, version 11.0.22 -
+		also a {strictly} BOM pin, same reasoning as the postgresql suppression above:
+		no newer Boot patch line has been verified against this project as of
+		2026-08-20, and overriding embedded-container versions outside Boot's tested
+		pairing is a real compatibility risk. Scoped to the exact pinned version.
+		Review by: 2026-11-18.
+		]]></notes>
+		<packageUrl regex="false">pkg:maven/org.apache.tomcat.embed/tomcat-embed-core@11.0.22</packageUrl>
+		<cve>CVE-2026-53404</cve>
+		<cve>CVE-2026-53434</cve>
+		<cve>CVE-2026-55276</cve>
+		<cve>CVE-2026-59083</cve>
+		<cve>CVE-2026-59084</cve>
+		<cve>CVE-2026-66299</cve>
+	</suppress>
+
+	<suppress>
+		<notes><![CDATA[
+		Same six CVEs as tomcat-embed-core above, same reasoning - tomcat-embed-websocket
+		is pulled in as a sibling artifact of the same Boot-pinned Tomcat version.
+		Review by: 2026-11-18.
+		]]></notes>
+		<packageUrl regex="false">pkg:maven/org.apache.tomcat.embed/tomcat-embed-websocket@11.0.22</packageUrl>
+		<cve>CVE-2026-53404</cve>
+		<cve>CVE-2026-53434</cve>
+		<cve>CVE-2026-55276</cve>
+		<cve>CVE-2026-59083</cve>
+		<cve>CVE-2026-59084</cve>
+		<cve>CVE-2026-66299</cve>
+	</suppress>
+
+	<suppress>
+		<notes><![CDATA[
+		CVE-2026-65898 (CVSS >= 7) in DOMPurify 3.2.4, bundled inside the Swagger UI
+		webjar shipped by springdoc-openapi-starter-webmvc-ui 2.8.6 (swagger-ui.js /
+		swagger-ui-bundle.js / swagger-ui-es-bundle.js all embed the same vendored
+		copy). No springdoc-openapi release with a patched swagger-ui/DOMPurify bundle
+		has been verified against this project's OpenAPI setup as of 2026-08-20.
+		DOMPurify has several additional lower-severity CVEs against this bundle that
+		don't cross the CVSS 7.0 gate and are left unsuppressed - they remain visible
+		in the dependency-check report. Review by: 2026-11-18.
+		]]></notes>
+		<packageUrl regex="false">pkg:javascript/DOMPurify@3.2.4</packageUrl>
+		<cve>CVE-2026-65898</cve>
+	</suppress>
+
+</suppressions>

@@ -1,0 +1,11 @@
+# Real deployment (Render + Neon Postgres). Combined with the `docker` profile
+# (SPRING_PROFILES_ACTIVE=docker,prod) for structured JSON logging - this file only
+# adds what's genuinely different about a real deployment: Neon requires SSL, and
+# every DB var below has NO fallback default, unlike application.yml's dev-friendly
+# localhost/fernbank/fernbank - a production deploy with a missing DB var should fail
+# fast at startup, not silently fall back to a local-dev credential that doesn't exist.
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/${DB_NAME}?sslmode=require
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
