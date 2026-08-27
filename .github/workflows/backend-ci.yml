@@ -74,3 +74,9 @@ jobs:
           add: badges/*.svg
           message: "chore: update backend coverage badge [skip ci]"
           default_author: github_actions
+          # ./gradlew check (above) can run 40-90+ min without an NVD_API_KEY - main can
+          # easily move during that window, and this step pushes directly to it. Without
+          # this, that's a non-fast-forward push rejection on an otherwise fully green
+          # run. Rebasing onto whatever main has become by now is safe: this step only
+          # ever touches badges/*.svg, so there's nothing of substance to conflict with.
+          pull: "--rebase --autostash"
