@@ -1,7 +1,7 @@
 plugins {
 	java
 	checkstyle
-	id("org.springframework.boot") version "4.0.7"
+	id("org.springframework.boot") version "4.0.8"
 	id("io.spring.dependency-management") version "1.1.7"
 	id("jacoco")
 	id("com.diffplug.spotless") version "8.10.0"
@@ -41,6 +41,16 @@ dependencies {
 	implementation("org.apache.pdfbox:pdfbox:3.0.3")
 	runtimeOnly("org.postgresql:postgresql")
 	runtimeOnly("org.bouncycastle:bcprov-jdk18on:1.80")
+	// Spring Boot 4.0.8's BOM still pins Tomcat 11.0.24, which is not yet patched for
+	// nine CVSS >= 7 CVEs disclosed 2026-08-25 (several 9.x, including an auth-bypass
+	// and an incomplete-fix-for-a-prior-CVE input validation issue) - see
+	// tomcat.apache.org/security-11.html's "Fixed in Apache Tomcat 11.0.25" section.
+	// Explicit versions here override the BOM's transitive ones. Patch-level Tomcat
+	// bump only (11.0.24 -> 11.0.25, security fixes only, no API changes) - full test
+	// suite verified green against it.
+	implementation("org.apache.tomcat.embed:tomcat-embed-core:11.0.25")
+	implementation("org.apache.tomcat.embed:tomcat-embed-el:11.0.25")
+	implementation("org.apache.tomcat.embed:tomcat-embed-websocket:11.0.25")
 	testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")
