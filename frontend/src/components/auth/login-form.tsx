@@ -6,8 +6,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 import { loginSchema, type LoginInput } from '@/lib/validation/auth.schemas';
 import { useAuth } from '@/hooks/use-auth';
+import { useBackendWarmup } from '@/hooks/use-backend-warmup';
 import { ApiError } from '@/lib/api/errors';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +20,7 @@ export function LoginForm() {
   const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const backendReady = useBackendWarmup();
   // Kept in component state, never the URL — an MFA challenge token has no business
   // showing up in browser history or a referrer header.
   const [mfaToken, setMfaToken] = useState<string | null>(null);
@@ -84,8 +87,14 @@ export function LoginForm() {
             errors={form.formState.errors.password ? [form.formState.errors.password] : undefined}
           />
         </Field>
-        <Button type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting ? 'Signing in…' : 'Sign in'}
+        {!backendReady && (
+          <p className="text-muted-foreground flex items-center gap-2 text-sm">
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+            Waking up the demo servers — this can take a few minutes on the free tier.
+          </p>
+        )}
+        <Button type="submit" disabled={!backendReady || form.formState.isSubmitting}>
+          {!backendReady ? 'Waking up…' : form.formState.isSubmitting ? 'Signing in…' : 'Sign in'}
         </Button>
         <p className="text-muted-foreground text-center text-sm">
           Don&apos;t have an account?{' '}
