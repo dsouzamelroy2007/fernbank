@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 import { registerSchema, type RegisterInput } from '@/lib/validation/auth.schemas';
 import { useAuth } from '@/hooks/use-auth';
+import { useBackendWarmup } from '@/hooks/use-backend-warmup';
 import { ApiError } from '@/lib/api/errors';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +17,7 @@ import { Field, FieldLabel, FieldError, FieldGroup } from '@/components/ui/field
 export function RegisterForm() {
   const { register: registerUser } = useAuth();
   const router = useRouter();
+  const backendReady = useBackendWarmup();
 
   const form = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
@@ -77,8 +80,18 @@ export function RegisterForm() {
             errors={form.formState.errors.password ? [form.formState.errors.password] : undefined}
           />
         </Field>
-        <Button type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting ? 'Creating account…' : 'Create account'}
+        {!backendReady && (
+          <p className="text-muted-foreground flex items-center gap-2 text-sm">
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+            Waking up the demo servers — this can take a few minutes on the free tier.
+          </p>
+        )}
+        <Button type="submit" disabled={!backendReady || form.formState.isSubmitting}>
+          {!backendReady
+            ? 'Waking up…'
+            : form.formState.isSubmitting
+              ? 'Creating account…'
+              : 'Create account'}
         </Button>
         <p className="text-muted-foreground text-center text-sm">
           Already have an account?{' '}
