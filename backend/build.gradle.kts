@@ -89,6 +89,10 @@ tasks.jacocoTestReport {
 	reports {
 		xml.required = true
 		html.required = true
+		// cicirello/jacoco-badge-generator (backend-ci.yml) reads this CSV to compute the
+		// README coverage badge - without it the badge-generation step fails with
+		// "No JaCoCo csv reports found" even though the actual test run passed.
+		csv.required = true
 	}
 	excludeNonServiceCode()
 }
