@@ -24,6 +24,8 @@ import { BackendClientService } from './backend-client/backend-client.service';
 import { AuthBackendService } from './auth/auth-backend.service';
 import { AuthController } from './auth/auth.controller';
 
+import { WarmupController } from './warmup/warmup.controller';
+
 import { ProxyController } from './proxy/proxy.controller';
 
 import { DashboardController } from './dashboard/dashboard.controller';
@@ -41,6 +43,7 @@ import { NotificationPollerService } from './notifications/notification-poller.s
   controllers: [
     HealthController,
     AuthController,
+    WarmupController,
     ProxyController,
     DashboardController,
     NotificationsController,
