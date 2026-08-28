@@ -4,7 +4,14 @@ import { useEffect, useState } from 'react';
 import { checkWarmup } from '@/lib/api/warmup';
 
 const POLL_INTERVAL_MS = 4_000;
-const POLL_TIMEOUT_MS = 8_000;
+// Matches (with a little slack) warmup.controller.ts's own BACKEND_HEALTH_TIMEOUT_MS -
+// a genuinely cold backend + Neon has taken 90-180s+ to respond in practice. Aborting
+// this fetch early doesn't just make one poll fail faster: on an earlier, much shorter
+// timeout here, live logs showed the backend never getting far enough to log anything
+// at all after 6+ minutes of polling, because every attempt tore down its connection
+// long before a cold boot could finish - see warmup.controller.ts's doc comment for
+// the full incident.
+const POLL_TIMEOUT_MS = 175_000;
 
 /**
  * Polls the bff's warmup probe until the backend (and, transitively, Neon) is
@@ -26,13 +33,17 @@ export function useBackendWarmup(): boolean {
   useEffect(() => {
     if (ready) return;
     let cancelled = false;
+    let inFlight = false;
     let scheduled: ReturnType<typeof setTimeout> | undefined;
 
     async function attempt() {
+      if (inFlight) return;
+      inFlight = true;
       const controller = new AbortController();
       const abortTimer = setTimeout(() => controller.abort(), POLL_TIMEOUT_MS);
       const ok = await checkWarmup(controller.signal);
       clearTimeout(abortTimer);
+      inFlight = false;
       if (cancelled) return;
       if (ok) {
         setReady(true);
@@ -46,7 +57,7 @@ export function useBackendWarmup(): boolean {
     }
 
     function handleVisibility() {
-      if (document.visibilityState !== 'visible' || cancelled) return;
+      if (document.visibilityState !== 'visible' || cancelled || inFlight) return;
       if (scheduled) clearTimeout(scheduled);
       runAttempt();
     }
