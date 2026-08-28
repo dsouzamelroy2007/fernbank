@@ -16,6 +16,13 @@ import {
 } from '../common/correlation';
 import { PROBLEM_TYPE_BASE } from '../common/problem-detail';
 
+/** Generous on purpose - a genuinely cold backend + Neon has taken 90-180s+ to
+ * respond in practice (see this file's doc comment). A short timeout here doesn't just
+ * make one poll fail faster - it tears down this exact outbound connection to the
+ * backend before Render's wake-up can complete, so the backend never gets a fair,
+ * uninterrupted shot at finishing its boot at all. */
+const BACKEND_HEALTH_TIMEOUT_MS = 170_000;
+
 /**
  * Unauthenticated readiness probe for the login page's "waking up" poll - lets the
  * frontend confirm the backend (and, via its own /actuator/health DB check, Neon) is
@@ -25,6 +32,12 @@ import { PROBLEM_TYPE_BASE } from '../common/problem-detail';
  * Vercel's shorter rewrite timeout, silently fails client-side, and each retry still
  * burns a LoginRateLimiter token server-side even though the user never sees a
  * successful response - the actual bug behind the 429s on a cold demo.
+ *
+ * Confirmed live (2026-08-28): an earlier version of this file used a 10s timeout here.
+ * Live logs showed the bff itself waking on the first request, but the backend never
+ * logged anything at all after 6+ minutes - each poll was aborting its connection to
+ * the backend long before a cold boot (90-180s+) could finish, so the backend was
+ * repeatedly interrupted before it ever got a real chance to come up.
  */
 @Controller('api/v1/warmup')
 @SkipThrottle()
@@ -39,7 +52,7 @@ export class WarmupController {
         this.http.request<{ status?: string }>({
           method: 'GET',
           url: `${config.backendInternalBaseUrl}/actuator/health`,
-          timeout: 10_000,
+          timeout: BACKEND_HEALTH_TIMEOUT_MS,
           validateStatus: () => true,
           headers: { [CORRELATION_ID_HEADER]: extractCorrelationId(req) },
         }),
