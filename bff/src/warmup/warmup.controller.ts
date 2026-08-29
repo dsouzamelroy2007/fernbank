@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  Logger,
   Req,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -42,6 +43,9 @@ const BACKEND_HEALTH_TIMEOUT_MS = 170_000;
 @Controller('api/v1/warmup')
 @SkipThrottle()
 export class WarmupController {
+  private readonly logger = new Logger(WarmupController.name);
+  private readonly targetUrl = `${config.backendInternalBaseUrl}/actuator/health`;
+
   constructor(private readonly http: HttpService) {}
 
   @Get()
@@ -51,7 +55,7 @@ export class WarmupController {
       const response = await firstValueFrom(
         this.http.request<{ status?: string }>({
           method: 'GET',
-          url: `${config.backendInternalBaseUrl}/actuator/health`,
+          url: this.targetUrl,
           timeout: BACKEND_HEALTH_TIMEOUT_MS,
           validateStatus: () => true,
           headers: { [CORRELATION_ID_HEADER]: extractCorrelationId(req) },
@@ -60,9 +64,21 @@ export class WarmupController {
       if (response.status === 200 && response.data?.status === 'UP') {
         return { status: 'UP' };
       }
-    } catch {
-      // Unreachable, still waking, or timed out - fall through to the 503 below so the
-      // frontend's poll loop just tries again shortly.
+      // Reached the backend but got something other than a healthy 200 - worth
+      // knowing exactly what, since "still starting up" isn't the only way to land here.
+      this.logger.warn(
+        `Backend health check reached ${this.targetUrl} but returned ` +
+          `status=${response.status} body=${JSON.stringify(response.data)}`,
+      );
+    } catch (error) {
+      // Logged at warn, not error: a cold backend timing out here is expected, routine
+      // traffic, not an incident - but the exact failure (DNS, connection refused,
+      // timeout, ...) is exactly what's needed to tell "still booting" apart from
+      // "misconfigured target" without guessing.
+      const detail = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Backend health check to ${this.targetUrl} failed: ${detail}`,
+      );
     }
     throw new ServiceUnavailableException({
       type: PROBLEM_TYPE_BASE + 'service-unavailable',
