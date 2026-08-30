@@ -39,6 +39,14 @@ const BACKEND_HEALTH_TIMEOUT_MS = 170_000;
  * logged anything at all after 6+ minutes - each poll was aborting its connection to
  * the backend long before a cold boot (90-180s+) could finish, so the backend was
  * repeatedly interrupted before it ever got a real chance to come up.
+ *
+ * Confirmed live (2026-08-30): raising the timeout above didn't fix it - logs showed
+ * this reaching the backend's URL immediately every time (sub-second, not timing out)
+ * and getting back a plain-text `429 Too Many Requests`, repeated every ~4-10s. That's
+ * Render's own infrastructure rate-limiting repeated wake requests to a sleeping
+ * service, before the backend ever gets a chance to boot - not anything in this app's
+ * control. The real fix was slowing the frontend's poll interval down (see
+ * use-backend-warmup.ts) so requests hit this endpoint far less often.
  */
 @Controller('api/v1/warmup')
 @SkipThrottle()
@@ -66,9 +74,14 @@ export class WarmupController {
       }
       // Reached the backend but got something other than a healthy 200 - worth
       // knowing exactly what, since "still starting up" isn't the only way to land here.
+      // Headers included specifically to catch a Retry-After on a 429 like the one
+      // confirmed live (2026-08-30): Render's own infra rate-limits repeated wake-up
+      // requests to a sleeping service with a plain-text 429, independent of anything
+      // this app does - see this class's doc comment for the fix that followed.
       this.logger.warn(
         `Backend health check reached ${this.targetUrl} but returned ` +
-          `status=${response.status} body=${JSON.stringify(response.data)}`,
+          `status=${response.status} headers=${JSON.stringify(response.headers)} ` +
+          `body=${JSON.stringify(response.data)}`,
       );
     } catch (error) {
       // Logged at warn, not error: a cold backend timing out here is expected, routine
