@@ -3,7 +3,12 @@
 import { useEffect, useState } from 'react';
 import { checkWarmup } from '@/lib/api/warmup';
 
-const POLL_INTERVAL_MS = 4_000;
+// Confirmed live (2026-08-30): a 4s interval here was frequent enough that Render's own
+// infrastructure started rate-limiting the wake-up requests with a plain 429, before the
+// backend ever got a chance to boot - independent of anything in this app's own code.
+// 25s keeps the wait honest without tripping that. See warmup.controller.ts's doc
+// comment for the full incident.
+const POLL_INTERVAL_MS = 25_000;
 // Matches (with a little slack) warmup.controller.ts's own BACKEND_HEALTH_TIMEOUT_MS -
 // a genuinely cold backend + Neon has taken 90-180s+ to respond in practice. Aborting
 // this fetch early doesn't just make one poll fail faster: on an earlier, much shorter
