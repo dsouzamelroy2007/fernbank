@@ -17,7 +17,7 @@ import { Field, FieldLabel, FieldError, FieldGroup } from '@/components/ui/field
 export function RegisterForm() {
   const { register: registerUser } = useAuth();
   const router = useRouter();
-  const backendReady = useBackendWarmup();
+  const { state: backendState, retry: retryBackend } = useBackendWarmup();
 
   const form = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
@@ -80,14 +80,25 @@ export function RegisterForm() {
             errors={form.formState.errors.password ? [form.formState.errors.password] : undefined}
           />
         </Field>
-        {!backendReady && (
+        {backendState === 'checking' && (
           <p className="text-muted-foreground flex items-center gap-2 text-sm">
             <Loader2 className="size-4 animate-spin" aria-hidden />
             Waking up the demo servers — this can take a few minutes on the free tier.
           </p>
         )}
-        <Button type="submit" disabled={!backendReady || form.formState.isSubmitting}>
-          {!backendReady
+        {backendState === 'failed' && (
+          <p className="text-destructive flex items-center justify-between gap-2 text-sm">
+            <span>Couldn&apos;t reach the demo servers.</span>
+            <Button type="button" variant="outline" size="sm" onClick={retryBackend}>
+              Try again
+            </Button>
+          </p>
+        )}
+        <Button
+          type="submit"
+          disabled={backendState !== 'ready' || form.formState.isSubmitting}
+        >
+          {backendState !== 'ready'
             ? 'Waking up…'
             : form.formState.isSubmitting
               ? 'Creating account…'

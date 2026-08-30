@@ -1,81 +1,79 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { checkWarmup } from '@/lib/api/warmup';
 
-// Confirmed live (2026-08-30): a 4s interval here was frequent enough that Render's own
-// infrastructure started rate-limiting the wake-up requests with a plain 429, before the
-// backend ever got a chance to boot - independent of anything in this app's own code.
-// 25s keeps the wait honest without tripping that. See warmup.controller.ts's doc
-// comment for the full incident.
-const POLL_INTERVAL_MS = 25_000;
-// Matches (with a little slack) warmup.controller.ts's own BACKEND_HEALTH_TIMEOUT_MS -
-// a genuinely cold backend + Neon has taken 90-180s+ to respond in practice. Aborting
-// this fetch early doesn't just make one poll fail faster: on an earlier, much shorter
-// timeout here, live logs showed the backend never getting far enough to log anything
-// at all after 6+ minutes of polling, because every attempt tore down its connection
-// long before a cold boot could finish - see warmup.controller.ts's doc comment for
-// the full incident.
-const POLL_TIMEOUT_MS = 175_000;
+// Generous on purpose - a genuinely cold backend + Neon has taken 90-180s+ to respond
+// in practice. See warmup.controller.ts's doc comment for the incident that set this.
+const ATTEMPT_TIMEOUT_MS = 175_000;
+
+export type WarmupState = 'checking' | 'ready' | 'failed';
 
 /**
- * Polls the bff's warmup probe until the backend (and, transitively, Neon) is
- * confirmed responsive. Render's free tier sleeps the bff and backend independently
- * after ~15 min idle; a cold first login otherwise races Vercel's shorter rewrite
- * timeout, fails silently on the client, and still burns a LoginRateLimiter attempt on
- * the server even though the user never saw success. Gating the real login submission
- * on this instead avoids that entirely - see warmup.controller.ts's doc comment.
+ * Makes a single attempt to confirm the backend (and, transitively, Neon) is
+ * responsive via the bff's warmup probe, instead of polling on a fixed interval.
+ * Render's free tier sleeps the bff and backend independently after ~15 min idle; a
+ * cold first login otherwise races Vercel's shorter rewrite timeout, fails silently on
+ * the client, and still burns a LoginRateLimiter attempt on the server even though the
+ * user never saw success. Gating the real login submission on this instead avoids that
+ * entirely - see warmup.controller.ts's doc comment.
  *
- * Re-checks immediately on tab refocus rather than relying solely on the interval
- * timer: browsers throttle setTimeout heavily in backgrounded tabs (Chrome can drop to
- * once a minute or less after ~5 min backgrounded), so a user who tabs away to check
- * something else while waiting would otherwise see this appear stuck long after the
- * backend actually became ready.
+ * Confirmed live (2026-08-30): this used to auto-retry on a fixed interval (4s, then
+ * 25s after the first fix attempt). Both got rejected by Render's own infrastructure -
+ * `x-render-routing: hibernate-rate-limited` - which treats repeated requests to a
+ * hibernating service as abuse and blocks them with a 429, regardless of how long the
+ * interval was tuned to. Render's own docs describe showing a "loading page" to
+ * browsers during spin-up, implying the platform expects one request that waits it
+ * out, not a client polling on any schedule. There is no interval that's guaranteed
+ * safe against a platform-level anti-abuse mechanism, so this makes exactly one
+ * attempt and surfaces failure as a retryable state instead of auto-looping - a human
+ * clicking "Try again" (or switching back to this tab) is sparse enough to not look
+ * like the same abuse pattern.
  */
-export function useBackendWarmup(): boolean {
-  const [ready, setReady] = useState(false);
+export function useBackendWarmup(): { state: WarmupState; retry: () => void } {
+  const [state, setState] = useState<WarmupState>('checking');
+  const inFlight = useRef(false);
+  const attemptRef = useRef<() => void>(() => {});
 
   useEffect(() => {
-    if (ready) return;
     let cancelled = false;
-    let inFlight = false;
-    let scheduled: ReturnType<typeof setTimeout> | undefined;
 
     async function attempt() {
-      if (inFlight) return;
-      inFlight = true;
+      if (inFlight.current) return;
+      inFlight.current = true;
+      setState('checking');
       const controller = new AbortController();
-      const abortTimer = setTimeout(() => controller.abort(), POLL_TIMEOUT_MS);
+      const abortTimer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
       const ok = await checkWarmup(controller.signal);
       clearTimeout(abortTimer);
-      inFlight = false;
+      inFlight.current = false;
       if (cancelled) return;
-      if (ok) {
-        setReady(true);
-        return;
-      }
-      scheduled = setTimeout(runAttempt, POLL_INTERVAL_MS);
+      setState(ok ? 'ready' : 'failed');
     }
 
-    function runAttempt() {
-      void attempt();
-    }
+    attemptRef.current = () => void attempt();
 
     function handleVisibility() {
-      if (document.visibilityState !== 'visible' || cancelled || inFlight) return;
-      if (scheduled) clearTimeout(scheduled);
-      runAttempt();
+      if (document.visibilityState !== 'visible' || cancelled) return;
+      if (inFlight.current) return;
+      setState((current) => {
+        if (current === 'failed') attemptRef.current();
+        return current;
+      });
     }
 
     document.addEventListener('visibilitychange', handleVisibility);
-    runAttempt();
+    attemptRef.current();
 
     return () => {
       cancelled = true;
-      if (scheduled) clearTimeout(scheduled);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [ready]);
+  }, []);
 
-  return ready;
+  const retry = useCallback(() => {
+    if (!inFlight.current) attemptRef.current();
+  }, []);
+
+  return { state, retry };
 }

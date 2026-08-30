@@ -20,7 +20,7 @@ export function LoginForm() {
   const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const backendReady = useBackendWarmup();
+  const { state: backendState, retry: retryBackend } = useBackendWarmup();
   // Kept in component state, never the URL — an MFA challenge token has no business
   // showing up in browser history or a referrer header.
   const [mfaToken, setMfaToken] = useState<string | null>(null);
@@ -87,14 +87,29 @@ export function LoginForm() {
             errors={form.formState.errors.password ? [form.formState.errors.password] : undefined}
           />
         </Field>
-        {!backendReady && (
+        {backendState === 'checking' && (
           <p className="text-muted-foreground flex items-center gap-2 text-sm">
             <Loader2 className="size-4 animate-spin" aria-hidden />
             Waking up the demo servers — this can take a few minutes on the free tier.
           </p>
         )}
-        <Button type="submit" disabled={!backendReady || form.formState.isSubmitting}>
-          {!backendReady ? 'Waking up…' : form.formState.isSubmitting ? 'Signing in…' : 'Sign in'}
+        {backendState === 'failed' && (
+          <p className="text-destructive flex items-center justify-between gap-2 text-sm">
+            <span>Couldn&apos;t reach the demo servers.</span>
+            <Button type="button" variant="outline" size="sm" onClick={retryBackend}>
+              Try again
+            </Button>
+          </p>
+        )}
+        <Button
+          type="submit"
+          disabled={backendState !== 'ready' || form.formState.isSubmitting}
+        >
+          {backendState !== 'ready'
+            ? 'Waking up…'
+            : form.formState.isSubmitting
+              ? 'Signing in…'
+              : 'Sign in'}
         </Button>
         <p className="text-muted-foreground text-center text-sm">
           Don&apos;t have an account?{' '}
