@@ -5,7 +5,23 @@ services:
     plan: free
     dockerfilePath: backend/Dockerfile
     dockerContext: backend
-    healthCheckPath: /actuator/health
+    # Liveness, not the plain aggregate /actuator/health - that one includes a DB
+    # connectivity check (auto-registered since JPA/a DataSource are on the classpath),
+    # which can legitimately report 503 for a while after the JVM itself is already up,
+    # since Neon has its own independent cold-start delay on top of the JVM's. Render's
+    # own health check is used to decide "is this instance alive, should traffic route
+    # to it" - a liveness-style question that should never depend on an external
+    # dependency's own startup timing (the readiness/DB-dependent question is what the
+    # bff's own warmup check already asks separately, over the public URL - see
+    # bff/src/warmup/warmup.controller.ts). Suspected root cause of Render's edge
+    # persistently rate-limiting wake-up requests with `hibernate-rate-limited`: if
+    # Render's own health check kept seeing 503 here during the Neon-wait window and
+    # didn't have the patience for it, it would repeatedly conclude this service failed
+    # to come up cleanly on wake - confirmed with Render support (2026-08-31) that a
+    # 429 hibernate-rate-limited response never reaches the app or logs a resume event,
+    # meaning it's decided entirely at Render's edge before their own control plane
+    # gets involved.
+    healthCheckPath: /actuator/health/liveness
     envVars:
       - key: SERVER_PORT
         value: "8080"
