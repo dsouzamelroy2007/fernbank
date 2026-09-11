@@ -38,6 +38,13 @@ export type WarmupState = 'checking' | 'ready' | 'failed';
  * the thing rate-limited, not request timing or headers - so this now also fires
  * pingBackendDirectly() from the browser itself alongside the bff-routed check, to get
  * the wake-up request to Render from a path that's actually proven to work.
+ *
+ * Confirmed live (2026-09-12): this fixed it. A genuinely cold stack (both services
+ * slept, no manual pre-warming) woke and completed login successfully on a normal
+ * visit to the Vercel URL. Still a sidestep, not a root-cause fix - Render support
+ * never identified why the bff's own origin gets blocked - so if this stops working,
+ * read this file's and warmup.controller.ts's full incident history before trying
+ * another timing/header variation; several were already tried and confirmed useless.
  */
 export function useBackendWarmup(): { state: WarmupState; retry: () => void } {
   const [state, setState] = useState<WarmupState>('checking');
