@@ -177,9 +177,12 @@ at Vercel's edge, so the browser only ever sees Vercel's hostname — see ADR 00
    1. Sign in at vercel.com with the GitHub account that owns this repo.
    2. "Add New Project" → import this repo.
    3. Set **Root Directory** to `frontend` — Vercel auto-detects Next.js once you do.
-   4. Add two environment variables: `NEXT_PUBLIC_BFF_BASE_URL` = *(leave empty)*,
+   4. Add environment variables: `NEXT_PUBLIC_BFF_BASE_URL` = *(leave empty)*,
       `BFF_ORIGIN` = your `fernbank-bff` Render URL (e.g.
-      `https://fernbank-bff.onrender.com`).
+      `https://fernbank-bff.onrender.com`), and `NEXT_PUBLIC_BACKEND_HEALTH_URL` =
+      your `fernbank-api` Render URL + `/actuator/health` (e.g.
+      `https://fernbank-api.onrender.com/actuator/health`) — see the "Known
+      limitations" section below for why this one exists.
    5. Deploy. Every push to `main` auto-deploys after this one-time setup — no GitHub
       Actions job needed for the frontend.
    6. Once you know the Vercel URL, update `CORS_ALLOWED_ORIGINS` /
@@ -193,19 +196,33 @@ at Vercel's edge, so the browser only ever sees Vercel's hostname — see ADR 00
   production, the existing `EventSource` reconnect logic in
   `use-transaction-notifications.ts` degrades gracefully (per-tab, no data loss) — this
   is a known, documented limitation, not a silent gap.
-- **Both services sleep after ~15 minutes idle on Render's free plan, with a ~1 minute
-  wake on the next request.** Unlike the earlier Fly.io setup, this applies uniformly to
-  bff→backend calls too: Render's free plan has no private networking between services,
-  so the bff always reaches the backend over its plain public HTTPS URL
-  (`BACKEND_INTERNAL_BASE_URL`), and *any* inbound request to that URL — including one
-  from the bff — wakes it the same way a browser hitting it directly would. So a cold
-  backend means the bff's first proxied call is slow (~1 minute), not a `502` — the
-  bff's own HTTP client just waits through the wake instead of getting refused outright,
-  which is actually milder than the Fly.io behavior this replaced (there, the bff's
-  private `.internal` DNS path to the backend did **not** trigger a wake at all, only a
-  request to the backend's public URL did, so the first proxied call 502'd outright).
-  Confirm this reasoning against the live Render deploy once it's up, rather than
-  trusting it untested.
+- **Both services sleep after ~15 minutes idle on Render's free plan.** A request from
+  a real browser wakes either one normally (confirmed live, consistently, in ~30-180s
+  depending on how cold Neon also is). A request that looks like it comes from the
+  bff's own Render-assigned origin does not: confirmed live and repeatedly reproduced
+  (2026-08 to 2026-09) that the bff's own calls to the backend's public URL
+  (`BACKEND_INTERNAL_BASE_URL` — Render's free plan has no private networking, so this
+  is always the backend's plain public HTTPS URL) get rejected with `429` and
+  `x-render-routing: hibernate-rate-limited`, decided entirely at Render's edge before
+  the request reaches the backend app or logs any resume event. Ruled out as the cause,
+  each confirmed live and none of it changed the outcome: request frequency (tried 4s,
+  25s, and a single manual attempt spaced a full day apart with near-zero other
+  traffic), any auto-retry at all (dropped entirely for a single attempt + manual
+  retry), a browser-like `User-Agent` on the bff's own call, and Render's own
+  `healthCheckPath` depending on the database (switched to the JVM-only
+  `/actuator/health/liveness`, in case Neon's independent cold-start was making Render's
+  own health verification flaky on wake). Render support (Hobby-tier, AI-agent-only)
+  confirmed the block is edge-level but hasn't identified a cause or resolution as of
+  2026-09-11.
+- **Current mitigation, not a confirmed fix**: `NEXT_PUBLIC_BACKEND_HEALTH_URL` (see the
+  Vercel setup step above) has the *browser* fire a direct, fire-and-forget wake-up
+  request straight to the backend's public health URL alongside the normal bff-routed
+  readiness check (`use-backend-warmup.ts`) — since a browser-originated request to that
+  same URL has consistently NOT been blocked, this sidesteps the bff-origin block
+  instead of resolving it. If this stops working too, or if Render clarifies the actual
+  cause, see `bff/src/warmup/warmup.controller.ts`'s doc comment for the full incident
+  history before trying another variation - several plausible-sounding fixes have
+  already been tried and confirmed not to work.
 
 ## ADR index
 
