@@ -36,3 +36,16 @@ export const BFF_BASE_URL = process.env.VERCEL
 export function resolveBffBase(): string {
   return BFF_BASE_URL || window.location.origin;
 }
+
+/**
+ * Backend's own public health-check URL (e.g.
+ * `https://fernbank-api.onrender.com/actuator/health`), used only to fire a direct
+ * wake-up ping from the browser - see warmup.ts's pingBackendDirectly.
+ * Optional and unset by default (a no-op then): local Docker Compose has no
+ * hibernation to work around, and this is specifically a workaround for Render's free
+ * tier, confirmed live (2026-09-11) to rate-limit wake-up requests that originate from
+ * the bff's own Render-assigned origin (`x-render-routing: hibernate-rate-limited`)
+ * while an otherwise-identical request from a real browser wakes the backend cleanly.
+ * Firing this same kind of request from the browser directly sidesteps that.
+ */
+export const BACKEND_HEALTH_URL = process.env.NEXT_PUBLIC_BACKEND_HEALTH_URL || undefined;
