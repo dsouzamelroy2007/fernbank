@@ -83,12 +83,25 @@ const BROWSER_LIKE_HEADERS = {
 export class WarmupController {
   private readonly logger = new Logger(WarmupController.name);
   private readonly targetUrl = `${config.backendInternalBaseUrl}/actuator/health`;
+  // Process-lifetime counter, not persisted - purely so consecutive log lines are easy
+  // to eyeball for real interval-between-attempts, since the previous logging only
+  // recorded outcomes, not attempts, making the actual call frequency hard to verify
+  // independently of what any party (this app's own code, or Render support) claims it
+  // is. Confirmed live (2026-09-11): Render support stated the bff calls this every
+  // 25s - the deployed code at that point had already dropped the auto-retry interval
+  // entirely (single attempt + manual/refocus retry only), so this line exists to get
+  // real, independently-checkable evidence rather than trusting either side's claim.
+  private attemptCount = 0;
 
   constructor(private readonly http: HttpService) {}
 
   @Get()
   @HttpCode(200)
   async check(@Req() req: Request): Promise<{ status: 'UP' }> {
+    this.attemptCount += 1;
+    this.logger.log(
+      `Backend health check attempt #${this.attemptCount} -> ${this.targetUrl}`,
+    );
     try {
       const response = await firstValueFrom(
         this.http.request<{ status?: string }>({
@@ -103,6 +116,9 @@ export class WarmupController {
         }),
       );
       if (response.status === 200 && response.data?.status === 'UP') {
+        this.logger.log(
+          `Backend health check attempt #${this.attemptCount} succeeded - UP`,
+        );
         return { status: 'UP' };
       }
       // Reached the backend but got something other than a healthy 200 - worth
@@ -112,8 +128,8 @@ export class WarmupController {
       // requests to a sleeping service with a plain-text 429, independent of anything
       // this app does - see this class's doc comment for the fix that followed.
       this.logger.warn(
-        `Backend health check reached ${this.targetUrl} but returned ` +
-          `status=${response.status} headers=${JSON.stringify(response.headers)} ` +
+        `Backend health check attempt #${this.attemptCount} reached ${this.targetUrl} but ` +
+          `returned status=${response.status} headers=${JSON.stringify(response.headers)} ` +
           `body=${JSON.stringify(response.data)}`,
       );
     } catch (error) {
@@ -123,7 +139,7 @@ export class WarmupController {
       // "misconfigured target" without guessing.
       const detail = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `Backend health check to ${this.targetUrl} failed: ${detail}`,
+        `Backend health check attempt #${this.attemptCount} to ${this.targetUrl} failed: ${detail}`,
       );
     }
     throw new ServiceUnavailableException({
