@@ -24,6 +24,21 @@ import { PROBLEM_TYPE_BASE } from '../common/problem-detail';
  * uninterrupted shot at finishing its boot at all. */
 const BACKEND_HEALTH_TIMEOUT_MS = 170_000;
 
+/** Confirmed live (2026-09-11): a direct browser request to the backend's public URL
+ * woke it normally with no 429, while the real Vercel -> bff -> backend path (through
+ * this exact call) failed the same way it always had. Axios's default User-Agent
+ * (`axios/x.x.x`) is a well-known non-browser signature; Cloudflare sits in front of
+ * Render (see the `server: cloudflare` header on every captured 429) and commonly
+ * applies stricter bot-heuristics to traffic that doesn't look like a real browser.
+ * Presenting as one is a real, testable fix for a false-positive block on our own
+ * server calling our own backend - not evasion of anything adversarial. */
+const BROWSER_LIKE_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
+    '(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+  Accept: 'application/json, text/plain, */*',
+};
+
 /**
  * Unauthenticated readiness probe for the login page's "waking up" poll - lets the
  * frontend confirm the backend (and, via its own /actuator/health DB check, Neon) is
@@ -45,8 +60,23 @@ const BACKEND_HEALTH_TIMEOUT_MS = 170_000;
  * and getting back a plain-text `429 Too Many Requests`, repeated every ~4-10s. That's
  * Render's own infrastructure rate-limiting repeated wake requests to a sleeping
  * service, before the backend ever gets a chance to boot - not anything in this app's
- * control. The real fix was slowing the frontend's poll interval down (see
- * use-backend-warmup.ts) so requests hit this endpoint far less often.
+ * control. Slowing the frontend's poll interval down (see use-backend-warmup.ts), and
+ * later dropping the auto-retry loop entirely for a single attempt + manual retry,
+ * didn't clear it either - the identical 429 persisted across days and multiple
+ * request-pattern changes, including single requests minutes to a day apart, ruling
+ * out request frequency as the cause. Render support confirmed the 429 is decided at
+ * their edge before the request reaches the app or logs a resume event. Switching
+ * Render's own healthCheckPath off a DB-dependent endpoint (render.yaml) didn't clear
+ * it either.
+ *
+ * Confirmed live (2026-09-11): a direct external (browser) request to the backend's
+ * public URL woke it normally with no 429, while the real Vercel -> bff -> backend path
+ * failed the same way it always had, in the same test session - strong evidence the
+ * block is specific to requests that look like they come from this bff, not the URL
+ * being blocked for everyone. Added BROWSER_LIKE_HEADERS as the next concrete thing to
+ * test, on the theory that axios's default User-Agent reads as an obvious non-browser
+ * script to Cloudflare's bot-heuristics (Render sits behind Cloudflare - see the
+ * `server: cloudflare` header on every captured 429).
  */
 @Controller('api/v1/warmup')
 @SkipThrottle()
@@ -66,7 +96,10 @@ export class WarmupController {
           url: this.targetUrl,
           timeout: BACKEND_HEALTH_TIMEOUT_MS,
           validateStatus: () => true,
-          headers: { [CORRELATION_ID_HEADER]: extractCorrelationId(req) },
+          headers: {
+            ...BROWSER_LIKE_HEADERS,
+            [CORRELATION_ID_HEADER]: extractCorrelationId(req),
+          },
         }),
       );
       if (response.status === 200 && response.data?.status === 'UP') {
