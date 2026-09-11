@@ -214,15 +214,18 @@ at Vercel's edge, so the browser only ever sees Vercel's hostname — see ADR 00
   own health verification flaky on wake). Render support (Hobby-tier, AI-agent-only)
   confirmed the block is edge-level but hasn't identified a cause or resolution as of
   2026-09-11.
-- **Current mitigation, not a confirmed fix**: `NEXT_PUBLIC_BACKEND_HEALTH_URL` (see the
-  Vercel setup step above) has the *browser* fire a direct, fire-and-forget wake-up
-  request straight to the backend's public health URL alongside the normal bff-routed
-  readiness check (`use-backend-warmup.ts`) — since a browser-originated request to that
-  same URL has consistently NOT been blocked, this sidesteps the bff-origin block
-  instead of resolving it. If this stops working too, or if Render clarifies the actual
-  cause, see `bff/src/warmup/warmup.controller.ts`'s doc comment for the full incident
-  history before trying another variation - several plausible-sounding fixes have
-  already been tried and confirmed not to work.
+- **Confirmed fix (2026-09-12)**: `NEXT_PUBLIC_BACKEND_HEALTH_URL` (see the Vercel setup
+  step above) has the *browser* fire a direct, fire-and-forget wake-up request straight
+  to the backend's public health URL alongside the normal bff-routed readiness check
+  (`use-backend-warmup.ts`) — since a browser-originated request to that same URL has
+  consistently not been blocked, this sidesteps the bff-origin block rather than
+  resolving its root cause (which Render's own support never identified). Verified live
+  against a genuinely cold stack (both services slept, no manual pre-warming): visiting
+  the Vercel URL normally now wakes the backend and completes login successfully. This
+  is a sidestep, not a root-cause fix — if it stops working, or Render clarifies the
+  actual cause, see `bff/src/warmup/warmup.controller.ts`'s doc comment for the full
+  incident history before trying another variation, since several plausible-sounding
+  fixes were already tried and confirmed not to work.
 
 ## ADR index
 

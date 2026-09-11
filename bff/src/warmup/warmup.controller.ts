@@ -76,7 +76,21 @@ const BROWSER_LIKE_HEADERS = {
  * being blocked for everyone. Added BROWSER_LIKE_HEADERS as the next concrete thing to
  * test, on the theory that axios's default User-Agent reads as an obvious non-browser
  * script to Cloudflare's bot-heuristics (Render sits behind Cloudflare - see the
- * `server: cloudflare` header on every captured 429).
+ * `server: cloudflare` header on every captured 429). This alone didn't clear it
+ * either, including on a completely fresh bff process's very first attempt.
+ *
+ * Resolved (2026-09-12), by sidestepping rather than fixing the root cause: the
+ * frontend now also fires a direct wake-up request from the browser itself
+ * (pingBackendDirectly() in frontend/src/lib/api/warmup.ts, see
+ * use-backend-warmup.ts's doc comment) alongside this bff-routed check, since a
+ * browser-originated request to the same URL has consistently not been blocked.
+ * Verified live against a genuinely cold stack. This endpoint and its 170s timeout are
+ * kept as the actual readiness signal (does the backend, and Neon, actually respond
+ * UP) - the browser ping's only job is triggering the wake, not reporting readiness.
+ * Render support never identified why the bff's own origin is blocked, so this remains
+ * a workaround, not a resolution - if it stops working, don't re-try timing or header
+ * variations on this specific call without new evidence; several were already ruled
+ * out above.
  */
 @Controller('api/v1/warmup')
 @SkipThrottle()
