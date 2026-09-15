@@ -196,36 +196,13 @@ at Vercel's edge, so the browser only ever sees Vercel's hostname — see ADR 00
   production, the existing `EventSource` reconnect logic in
   `use-transaction-notifications.ts` degrades gracefully (per-tab, no data loss) — this
   is a known, documented limitation, not a silent gap.
-- **Both services sleep after ~15 minutes idle on Render's free plan.** A request from
-  a real browser wakes either one normally (confirmed live, consistently, in ~30-180s
-  depending on how cold Neon also is). A request that looks like it comes from the
-  bff's own Render-assigned origin does not: confirmed live and repeatedly reproduced
-  (2026-08 to 2026-09) that the bff's own calls to the backend's public URL
-  (`BACKEND_INTERNAL_BASE_URL` — Render's free plan has no private networking, so this
-  is always the backend's plain public HTTPS URL) get rejected with `429` and
-  `x-render-routing: hibernate-rate-limited`, decided entirely at Render's edge before
-  the request reaches the backend app or logs any resume event. Ruled out as the cause,
-  each confirmed live and none of it changed the outcome: request frequency (tried 4s,
-  25s, and a single manual attempt spaced a full day apart with near-zero other
-  traffic), any auto-retry at all (dropped entirely for a single attempt + manual
-  retry), a browser-like `User-Agent` on the bff's own call, and Render's own
-  `healthCheckPath` depending on the database (switched to the JVM-only
-  `/actuator/health/liveness`, in case Neon's independent cold-start was making Render's
-  own health verification flaky on wake). Render support (Hobby-tier, AI-agent-only)
-  confirmed the block is edge-level but hasn't identified a cause or resolution as of
-  2026-09-11.
-- **Confirmed fix (2026-09-12)**: `NEXT_PUBLIC_BACKEND_HEALTH_URL` (see the Vercel setup
-  step above) has the *browser* fire a direct, fire-and-forget wake-up request straight
-  to the backend's public health URL alongside the normal bff-routed readiness check
-  (`use-backend-warmup.ts`) — since a browser-originated request to that same URL has
-  consistently not been blocked, this sidesteps the bff-origin block rather than
-  resolving its root cause (which Render's own support never identified). Verified live
-  against a genuinely cold stack (both services slept, no manual pre-warming): visiting
-  the Vercel URL normally now wakes the backend and completes login successfully. This
-  is a sidestep, not a root-cause fix — if it stops working, or Render clarifies the
-  actual cause, see `bff/src/warmup/warmup.controller.ts`'s doc comment for the full
-  incident history before trying another variation, since several plausible-sounding
-  fixes were already tried and confirmed not to work.
+- **Both services sleep after ~15 minutes idle on Render's free plan.** A cold visit
+  wakes both automatically. The bff's own server-to-server wake-up requests to the
+  backend were, for a while, getting blocked by Render's edge in a way a real browser's
+  requests weren't — worked around by having the browser itself fire a direct wake-up
+  ping alongside the bff's own readiness check (`NEXT_PUBLIC_BACKEND_HEALTH_URL`). Full
+  incident writeup, including everything that was ruled out first, in
+  [docs/troubleshooting.md](troubleshooting.md).
 
 ## ADR index
 
