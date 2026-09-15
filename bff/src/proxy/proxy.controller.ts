@@ -17,19 +17,8 @@ import { PROBLEM_TYPE_BASE } from '../common/problem-detail';
 
 const RESOURCES = [...ALLOWED_PROXY_RESOURCES];
 
-/** Headers the browser sets that must ride through to the backend unchanged. */
 const FORWARDED_HEADERS = ['idempotency-key'];
 
-/**
- * Routes are the allowlist: registered as literal paths derived from
- * ALLOWED_PROXY_RESOURCES (`accounts`, `accounts/*path`, `payees`, ...), never a bare
- * `:resource` wildcard param — that would structurally risk shadowing or being shadowed
- * by AuthController's `api/v1/auth/**` routes depending on registration order. This way
- * `/api/v1/admin/**` (or anything else) simply has no matching route at all; Nest's own
- * 404 handles it before this controller's code ever runs. The runtime check in
- * `forward()` is defense-in-depth against a future refactor accidentally widening the
- * route list, not the primary guard.
- */
 @Controller('api/v1')
 export class ProxyController {
   constructor(private readonly backendClient: BackendClientService) {}

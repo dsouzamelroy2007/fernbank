@@ -1,7 +1,5 @@
 import { config } from '../config/configuration';
 
-/** Non-httpOnly by design — the frontend reads this value and echoes it as the
- * X-CSRF-Token header on every mutating request (double-submit pattern). */
 export const CSRF_COOKIE_NAME = 'fernbank_bff_csrf';
 export const CSRF_HEADER_NAME = 'x-csrf-token';
 

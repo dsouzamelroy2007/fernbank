@@ -22,15 +22,6 @@ interface TokenPair {
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 const STALE_AFTER_MS = 10 * 60 * 1000;
 
-/**
- * Caches one access token per session, refreshed from the backend only when
- * near-expiry — never on every request. The backend's POST /auth/refresh ALWAYS
- * rotates the refresh token and revokes the previous one; two concurrent calls for the
- * same session would trip its reuse-detection and revoke the whole family, logging the
- * user out. `refreshLocks` single-flights concurrent callers onto one in-flight
- * refresh, the same guard frontend/src/lib/auth/token-store.ts already used
- * client-side, just relocated here now that the browser never holds a token at all.
- */
 @Injectable()
 export class AccessTokenCacheService {
   private readonly logger = new Logger(AccessTokenCacheService.name);
@@ -59,8 +50,6 @@ export class AccessTokenCacheService {
     return refreshed.accessToken;
   }
 
-  /** Forces a fresh refresh regardless of cache state — used after a downstream 401 despite a
-   * cached token that looked valid (clock skew, out-of-band revocation). */
   async forceRefresh(
     sessionId: string,
     cookieRefreshToken: string,
@@ -72,8 +61,6 @@ export class AccessTokenCacheService {
     return refreshed.accessToken;
   }
 
-  /** Step-up: overwrite the cached access token with an elevated one, leaving the
-   * refresh token untouched — never returned to the browser. */
   overwriteElevated(
     sessionId: string,
     elevatedAccessToken: string,
@@ -92,9 +79,6 @@ export class AccessTokenCacheService {
     });
   }
 
-  /** Seeds the cache with the token pair a fresh login/register/mfa-verify already
-   * returned, so the very next request for this session doesn't pay for an extra
-   * refresh round trip. */
   seed(sessionId: string, accessToken: string, refreshToken: string): void {
     this.cache.set(sessionId, {
       accessToken,
@@ -103,7 +87,6 @@ export class AccessTokenCacheService {
     });
   }
 
-  /** Used by SessionCookieSyncInterceptor to detect rotation since the request started. */
   getCurrentRefreshToken(sessionId: string): string | undefined {
     return this.cache.get(sessionId)?.refreshToken;
   }

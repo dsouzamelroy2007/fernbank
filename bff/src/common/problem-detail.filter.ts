@@ -10,14 +10,6 @@ import type { Request, Response } from 'express';
 import { CORRELATION_ID_HEADER } from './correlation';
 import { PROBLEM_TYPE_BASE, type ProblemDetailBody } from './problem-detail';
 
-/**
- * Global RFC 9457 Problem Details mapping, mirroring the backend's own
- * error.ApiExceptionHandler shape exactly. Backend errors forwarded via
- * UpstreamHttpException pass through verbatim; BFF-native exceptions (CSRF, dead
- * session) are expected to already carry a ProblemDetailBody-shaped response object.
- * Unmapped exceptions are logged server-side and returned as an opaque 500 — never a
- * stack trace to the client.
- */
 @Catch()
 export class ProblemDetailFilter implements ExceptionFilter {
   private readonly logger = new Logger(ProblemDetailFilter.name);

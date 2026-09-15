@@ -10,10 +10,6 @@ import {
 } from '../common/problem-detail';
 import { CORRELATION_ID_HEADER, newCorrelationId } from '../common/correlation';
 
-/** Raw, token-less calls to the backend's auth endpoints (register/login/mfa-verify/
- * logout) — these precede having a session, or only need a refreshToken body param,
- * not a cached Bearer access token. Mirrors what
- * frontend/src/lib/api/server-fetch.ts used to do from Next.js Route Handlers. */
 @Injectable()
 export class AuthBackendService {
   constructor(private readonly http: HttpService) {}
@@ -28,9 +24,6 @@ export class AuthBackendService {
       'Content-Type': 'application/json',
       [CORRELATION_ID_HEADER]: correlationId ?? newCorrelationId(),
     };
-    // Only sent when both sides are configured to understand it - see
-    // config.internalServiceKey's comment and AuthController.resolveClientIp on the
-    // backend for why an unpaired X-Forwarded-For is never trusted on its own.
     if (clientIp && config.internalServiceKey) {
       headers['X-Forwarded-For'] = clientIp;
       headers['X-Internal-Service-Key'] = config.internalServiceKey;

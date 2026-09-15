@@ -9,9 +9,6 @@ import { requireSession } from '../session/require-session';
 export class NotificationsController {
   constructor(private readonly poller: NotificationPollerService) {}
 
-  /** One long-lived connection, not many short requests — excluded from the request-
-   * count throttle. EventSource is GET-only with no custom-header API, so CsrfGuard's
-   * safe-method check already exempts it too. */
   @Sse()
   @SkipThrottle()
   stream(@Req() req: Request): Observable<MessageEvent> {

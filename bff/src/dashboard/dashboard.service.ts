@@ -13,10 +13,6 @@ import type {
 const STATEMENT_WINDOW_DAYS = 30;
 const STATEMENT_PAGE_SIZE = 50;
 
-/** Replaces the frontend's old /me + /accounts + N×/accounts/{id}/statement waterfall
- * with one round trip. Promise.allSettled on the per-account fan-out (not Promise.all)
- * — one slow/failing account degrades gracefully instead of blanking the whole
- * dashboard, matching what the old per-query useQueries fan-out already did. */
 @Injectable()
 export class DashboardService {
   constructor(private readonly backendClient: BackendClientService) {}

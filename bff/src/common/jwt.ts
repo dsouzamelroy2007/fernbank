@@ -1,6 +1,3 @@
-/** Reads the `exp` claim off an already-trusted JWT (issued by our own call to Spring
- * Boot) without verifying its signature — used only as a caching hint, never a trust
- * decision, so signature verification would be unnecessary complexity here. */
 export function decodeJwtExpiryMs(token: string): number | null {
   try {
     const payloadSegment = token.split('.')[1];

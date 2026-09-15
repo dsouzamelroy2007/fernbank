@@ -25,20 +25,9 @@ interface AuthenticatedRequestOptions {
   query?: Record<string, unknown>;
   body?: unknown;
   extraHeaders?: Record<string, string>;
-  /** Propagates the browser's X-Correlation-Id through to the backend so one request
-   * traces as one id across both processes. Falls back to minting one when the caller
-   * has no single originating browser request (e.g. the notification poller). */
   correlationId?: string;
 }
 
-/**
- * The only thing in this process that calls Spring Boot on behalf of an authenticated
- * session. Binary-safe (arraybuffer throughout — CSV/PDF statement exports pass through
- * exactly like JSON, no format-specific branching) and owns the single-retry-on-401
- * pattern: resolve a cached token, call; if the call itself 401s despite a token that
- * looked valid (clock skew, out-of-band revocation), force a fresh refresh and retry
- * exactly once before giving up.
- */
 @Injectable()
 export class BackendClientService {
   constructor(
@@ -67,8 +56,6 @@ export class BackendClientService {
     }
   }
 
-  /** JSON-decoded variant for callers that need to inspect/reshape the response
-   * (dashboard aggregation, mfa/step-up) rather than pass it straight through. */
   async requestJson<T>(options: AuthenticatedRequestOptions): Promise<T> {
     const raw = await this.requestRaw(options);
     return raw.data.length

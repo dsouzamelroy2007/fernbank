@@ -36,10 +36,6 @@ import { NotificationPollerService } from './notifications/notification-poller.s
 
 @Module({
   imports: [HttpModule, ThrottlerModule.forRoot(throttlerOptions)],
-  // AuthController first: its literal /api/v1/auth/** routes must never be shadowed by
-  // ProxyController's routes — see proxy.controller.ts's own doc comment for why those
-  // are registered as literal allowlisted paths rather than a `:resource` wildcard that
-  // could otherwise create exactly this ordering risk.
   controllers: [
     HealthController,
     AuthController,

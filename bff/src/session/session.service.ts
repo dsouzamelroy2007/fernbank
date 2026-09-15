@@ -12,8 +12,6 @@ import { CSRF_COOKIE_NAME, csrfCookieOptions } from '../common/csrf-cookie';
 export class SessionService {
   constructor(private readonly crypto: SessionCryptoService) {}
 
-  /** Mints a fresh sessionId and writes both cookies — called only on a true
-   * AUTHENTICATED login/register/mfa-verify result, never on MFA_REQUIRED. */
   startSession(response: Response, refreshToken: string): string {
     const sessionId = randomUUID();
     this.writeSessionCookie(response, sessionId, refreshToken);
@@ -21,7 +19,6 @@ export class SessionService {
     return sessionId;
   }
 
-  /** Re-sets the session cookie with a rotated refresh token, same sessionId. */
   rotateSession(
     response: Response,
     sessionId: string,

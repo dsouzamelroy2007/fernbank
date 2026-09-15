@@ -29,7 +29,6 @@ interface BackendAuthResult {
   mfaToken?: string;
 }
 
-/** What the browser is allowed to see — never accessToken, never refreshToken. */
 interface BrowserAuthResult {
   status: 'AUTHENTICATED' | 'MFA_REQUIRED';
   mfaToken?: string;
@@ -37,12 +36,6 @@ interface BrowserAuthResult {
 
 const STEP_UP_FALLBACK_TTL_MS = 5 * 60 * 1000;
 
-/**
- * Owns the session+CSRF cookies. Register/login/mfa-verify/logout are raw calls (no
- * cached access token exists yet, or logout only needs the refreshToken as a body
- * param). mfa/enroll, mfa/enroll/confirm, and step-up need a Bearer token attached, so
- * they go through the same BackendClientService the proxy uses.
- */
 @Controller('api/v1/auth')
 export class AuthController {
   constructor(
@@ -101,9 +94,6 @@ export class AuthController {
   ): Promise<void> {
     const session = req.fernbankSession;
     if (session) {
-      // Logout must always succeed from the user's perspective, even if the backend
-      // call fails — the cookies are cleared regardless (matches the old Route
-      // Handler's same reasoning).
       await this.authBackend
         .post(
           '/api/v1/auth/logout',
@@ -141,13 +131,6 @@ export class AuthController {
     });
   }
 
-  /**
-   * The elevated access token is overwritten into the session cache and NEVER returned
-   * to the browser — every subsequent proxied call for this session (including the
-   * transfer retry that triggered step-up) automatically rides it until it expires or
-   * a normal refresh overwrites it, same as today's client-side tokenStore.set()
-   * behavior, just relocated server-side.
-   */
   @Post('step-up')
   @HttpCode(HttpStatus.OK)
   async stepUp(

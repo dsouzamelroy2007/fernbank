@@ -11,8 +11,6 @@ export interface SessionPayload {
   refreshToken: string;
 }
 
-/** AES-256-GCM encrypt/decrypt of the session cookie payload — same pattern as the
- * backend's own MfaSecretConverter (pure JDK/Node crypto, no new dependency). */
 @Injectable()
 export class SessionCryptoService {
   private readonly key: Buffer;
@@ -37,7 +35,6 @@ export class SessionCryptoService {
     return Buffer.concat([iv, authTag, ciphertext]).toString('base64url');
   }
 
-  /** Returns null on any decryption/tamper/parse failure — callers treat this as "no session". */
   decrypt(cookieValue: string): SessionPayload | null {
     try {
       const raw = Buffer.from(cookieValue, 'base64url');

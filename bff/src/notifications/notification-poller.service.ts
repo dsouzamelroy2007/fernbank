@@ -21,15 +21,6 @@ interface PollerState {
   lastSeenByAccount: Map<string, string>;
 }
 
-/**
- * The backend has no push/event mechanism at all, and adding one is out of scope — this
- * is real SSE push to the browser backed by BFF-side polling, not a true backend event
- * stream. Ref-counted per sessionId, not per connection: the first SSE subscriber for a
- * session starts one poll loop, fanned out via an RxJS Subject to however many
- * tabs/connections are attached; the last one to disconnect stops it. A (re)connecting
- * client only sees events emitted after it attaches — no history replay. Single-BFF-
- * instance-only (no Redis/shared poller registry) — documented scope limitation.
- */
 @Injectable()
 export class NotificationPollerService {
   private readonly pollers = new Map<string, PollerState>();
@@ -69,9 +60,6 @@ export class NotificationPollerService {
     });
   }
 
-  /** Records each account's current latest entry as "already seen" before the first
-   * poll cycle, so connecting doesn't immediately replay existing history as if it
-   * were new. */
   private async seedLastSeen(
     session: SessionPayload,
     state: PollerState,
@@ -88,7 +76,7 @@ export class NotificationPollerService {
         }),
       );
     } catch {
-      // Best-effort — the first real poll cycle will retry and self-correct.
+      // empty
     }
   }
 
@@ -119,7 +107,7 @@ export class NotificationPollerService {
         }
       }
     } catch {
-      // Best-effort — try again next interval rather than tearing down the connection.
+      // empty
     }
   }
 
@@ -147,7 +135,6 @@ export class NotificationPollerService {
   }
 }
 
-/** entries is sorted createdAt desc — collects everything newer than stopAtId. */
 function takeUntilId(
   entries: StatementEntryResponse[],
   stopAtId: string,
