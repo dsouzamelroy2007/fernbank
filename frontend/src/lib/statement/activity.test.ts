@@ -28,7 +28,6 @@ describe('mergeRecentActivity', () => {
     }));
     const result = mergeRecentActivity([{ accountId: 'a', entries }], 2);
     expect(result).toHaveLength(2);
-    // Newest two: ids "4" and "3" (2026-08-14, 2026-08-13).
     expect(result.map((e) => e.id)).toEqual(['4', '3']);
   });
 

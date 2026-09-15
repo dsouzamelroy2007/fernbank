@@ -21,13 +21,6 @@ interface TransactionNotification {
   };
 }
 
-/**
- * GET /bff/notifications (Phase 8) — real SSE push to the browser backed by the BFF
- * polling the backend on the session's behalf (no push mechanism exists backend-side).
- * `withCredentials: true` is required explicitly: cross-origin EventSource defaults to
- * not sending cookies, same as bare fetch, and the session cookie is how the BFF knows
- * whose accounts to poll. The connection is only opened while authenticated.
- */
 export function useTransactionNotifications(enabled: boolean) {
   const queryClient = useQueryClient();
 

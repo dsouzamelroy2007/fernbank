@@ -22,8 +22,6 @@ export const changePasswordSchema = z
     path: ['confirmNewPassword'],
   });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
-// confirmNewPassword is a client-only field (never sent to the API), so only the two
-// fields the backend actually declares are checked against ChangePasswordRequest.
 assertSchemaMatchesApi<
   AllTrue<
     FieldsMatchApi<

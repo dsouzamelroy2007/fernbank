@@ -94,8 +94,6 @@ export default function TransferPage() {
 
   async function handleStepUp() {
     try {
-      // The BFF elevates the session's access token server-side and never returns it
-      // to the browser (Phase 8) - nothing to store here, just retry the transfer.
       await stepUpMutation.mutateAsync(stepUpCode);
       const body = buildTransferBody();
       if (body) await submitTransfer(body);

@@ -6,7 +6,6 @@ export interface ActivityEntry extends StatementEntryResponse {
   accountId: string;
 }
 
-/** Merges each account's entries into one feed sorted newest-first, capped at `limit`. */
 export function mergeRecentActivity(
   entriesByAccount: Array<{ accountId: string; entries: StatementEntryResponse[] }>,
   limit: number,

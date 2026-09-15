@@ -23,8 +23,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main className="flex flex-1 flex-col p-6">
           <AuthGate>{children}</AuthGate>
         </main>
-        {/* Written into by lib/format/announce.ts — the transfer wizard's own receipt
-            step, and Phase 8's SSE transaction notifications from any active session. */}
         <div aria-live="polite" className="sr-only" id="balance-announcer" />
       </SidebarInset>
     </SidebarProvider>

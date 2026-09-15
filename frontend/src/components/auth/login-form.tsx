@@ -21,8 +21,6 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { state: backendState, retry: retryBackend } = useBackendWarmup();
-  // Kept in component state, never the URL — an MFA challenge token has no business
-  // showing up in browser history or a referrer header.
   const [mfaToken, setMfaToken] = useState<string | null>(null);
 
   useEffect(() => {

@@ -22,8 +22,6 @@ export interface DashboardAccount {
   createdAt?: string;
   recentStatement: {
     entries: DashboardStatementEntry[];
-    /** true if this account's statement fetch failed on the BFF side - the rest of the
-     * dashboard still loads rather than the whole page failing over one account's blip. */
     degraded: boolean;
   };
 }
@@ -38,12 +36,6 @@ export interface DashboardResponse {
   accounts: DashboardAccount[];
 }
 
-/**
- * GET /bff/dashboard has no backend OpenAPI equivalent - it's a BFF-only aggregate
- * endpoint (Phase 8) replacing the old /me + /accounts + N×/accounts/{id}/statement
- * waterfall with one round trip - so its response shape is hand-written here rather
- * than generated, same precedent as lib/api/errors.ts's hand-written ProblemDetailBody.
- */
 export async function getDashboard(signal?: AbortSignal): Promise<DashboardResponse> {
   const response = await fetch(new URL('/bff/dashboard', resolveBffBase()), {
     credentials: 'include',

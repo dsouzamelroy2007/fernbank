@@ -16,8 +16,6 @@ export default function LoginPage() {
           <CardDescription>Welcome back to fernbank.</CardDescription>
         </CardHeader>
         <CardContent>
-          {/* useSearchParams() (reading ?reason=idle) requires a Suspense boundary to
-              statically prerender this otherwise-static page. */}
           <Suspense fallback={<Skeleton className="h-64 w-full" />}>
             <LoginForm />
           </Suspense>

@@ -19,7 +19,6 @@ type PathParamsOf<Op> = Op extends { parameters: { path: infer P } } ? P : undef
 
 type QueryParamsOf<Op> = Op extends { parameters: { query?: infer Q } } ? Q : undefined;
 
-/** Union of the response body types for whichever success status(es) an operation declares. */
 type SuccessBodyOf<Op> = Op extends { responses: infer R }
   ? {
       [K in Extract<keyof R, 200 | 201 | 204>]: R[K] extends { content: infer C }
@@ -59,18 +58,6 @@ function buildUrl(
   return url;
 }
 
-/**
- * Generic typed fetch wrapper around the fernbank BFF, generated types from
- * docs/openapi.json (src/lib/api/schema.d.ts) — the BFF mirrors the backend's response
- * shapes 1:1 for every proxied path, so the same generated types still apply even
- * though the browser now talks to the BFF instead of Spring Boot directly.
- *
- * Always sends credentials (the BFF's session cookie) and, on non-GET requests, the
- * CSRF double-submit header. There's no client-side 401-retry-refresh dance anymore —
- * the BFF refreshes the access token transparently server-side; a 401 reaching the
- * browser means the session is genuinely dead (never logged in, or revoked), not just
- * expired, so it's surfaced as a real error instead of retried.
- */
 export async function apiFetch<P extends keyof paths, M extends HttpMethod>(
   method: M,
   path: P,

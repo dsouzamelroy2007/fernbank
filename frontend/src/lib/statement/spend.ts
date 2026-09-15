@@ -3,16 +3,10 @@ import type { components } from '@/lib/api/schema';
 type StatementEntryResponse = components['schemas']['StatementEntryResponse'];
 
 export interface DailySpend {
-  /** YYYY-MM-DD */
   date: string;
   amount: number;
 }
 
-/**
- * Sums debit (negative-amount) ledger entries per calendar day across every account, for
- * the dashboard's spend chart. A display aggregate only, built from `now` at call time —
- * see lib/format/money.ts's note on why client-side Number parsing here is acceptable.
- */
 export function dailySpend(entries: StatementEntryResponse[], days: number, now = new Date()): DailySpend[] {
   const totals = new Map<string, number>();
   for (let i = days - 1; i >= 0; i--) {

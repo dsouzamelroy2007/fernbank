@@ -18,7 +18,6 @@ describe('dailySpend', () => {
       [
         { id: '1', createdAt: '2026-08-20T10:00:00Z', amount: { amount: '-12.50', currency: 'USD' } },
         { id: '2', createdAt: '2026-08-20T14:00:00Z', amount: { amount: '-7.50', currency: 'USD' } },
-        // A credit (deposit) on the same day must not count as spend.
         { id: '3', createdAt: '2026-08-20T16:00:00Z', amount: { amount: '100.00', currency: 'USD' } },
       ],
       3,

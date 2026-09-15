@@ -2,13 +2,6 @@ import { z } from 'zod';
 import type { components } from '@/lib/api/schema';
 import { isValidFernbankAccountNumber } from '@/lib/validation/iban';
 
-// Two changes from auth.schemas.ts's copy, both needed because transferSchema has
-// genuinely optional fields (destinationAccountId/Number) where none of the existing
-// schemas did: (1) NonNullable<Zod[K]> strips `| undefined` so optionality doesn't block
-// the value-type comparison, and (2) the `-?` modifier stops this homomorphic mapped
-// type from re-inheriting Zod's own optional modifier onto the *result* - without it,
-// `AllTrue` would index into a partly-optional `{ ...: true }` type, produce
-// `true | undefined`, and always fail even when every field genuinely matches.
 type FieldsMatchApi<Zod extends Record<string, unknown>, Api> = {
   [K in keyof Zod]-?: K extends keyof Api
     ? NonNullable<Zod[K]> extends NonNullable<Api[K]>
@@ -31,9 +24,6 @@ export const moneyDtoSchema = z.object({
 export type MoneyDtoInput = z.infer<typeof moneyDtoSchema>;
 assertSchemaMatchesApi<AllTrue<FieldsMatchApi<MoneyDtoInput, components['schemas']['MoneyDto']>>>();
 
-// destinationAccountId XOR destinationAccountNumber is enforced imperatively server-side
-// (api.DestinationAccountResolver) rather than declared on the schema - mirrored here via
-// .refine() so the wizard can't submit an impossible combination.
 export const transferSchema = z
   .object({
     sourceAccountId: z.string().uuid(),

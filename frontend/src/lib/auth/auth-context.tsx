@@ -12,10 +12,6 @@ export type LoginResult =
 interface AuthContextValue {
   user: MeResponse | null;
   isAuthenticated: boolean;
-  /** True until the initial bootstrap load-user attempt has resolved one way or the
-   * other. The BFF's session cookie makes the session durable across a hard reload —
-   * there's no client-side token to restore, just an httpOnly cookie the browser
-   * already sends automatically, so bootstrap is simply "try loading /me". */
   isBootstrapping: boolean;
   login: (email: string, password: string) => Promise<LoginResult>;
   verifyMfa: (mfaToken: string, code: string) => Promise<void>;
@@ -76,8 +72,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    // The BFF reads the refresh token from the session cookie itself - no body needed.
-    // Logout must always succeed from the user's perspective even if this call fails.
     await apiFetch('post', '/api/v1/auth/logout').catch(() => undefined);
     setUser(null);
   }, []);

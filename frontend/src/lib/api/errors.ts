@@ -1,9 +1,3 @@
-/**
- * RFC 9457 Problem Details, as produced by every error response in the fernbank API
- * (error.ApiExceptionHandler on the backend). The OpenAPI-generated ProblemDetail schema
- * types these fields as `unknown` — springdoc doesn't declare a JSON `type` for them — so
- * this interface is hand-written from the backend's actual, verified response shape.
- */
 export interface ProblemDetailBody {
   type?: string;
   title?: string;
@@ -11,11 +5,9 @@ export interface ProblemDetailBody {
   detail?: string;
   instance?: string;
   correlationId?: string;
-  /** Present only on 400 validation failures; flat "field: message" strings, not objects. */
   errors?: string[];
 }
 
-/** Known ProblemDetail `type` slugs worth switching on, per error.ApiExceptionHandler. */
 export const PROBLEM_TYPE = {
   emailAlreadyRegistered: 'email-already-registered',
   unauthorized: 'unauthorized',

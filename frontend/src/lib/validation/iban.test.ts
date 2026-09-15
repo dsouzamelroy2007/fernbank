@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isValidFernbankAccountNumber } from '@/lib/validation/iban';
 
-// "FB" + BBAN "0000000000000000" checksums to "27" via the same ISO 7064 MOD 97-10
-// algorithm banking.AccountNumberGenerator uses (verified against a standalone
-// implementation of that exact algorithm, not asserted from thin air).
 const VALID = 'FB270000000000000000';
 
 describe('isValidFernbankAccountNumber', () => {
