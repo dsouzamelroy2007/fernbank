@@ -47,14 +47,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The Playwright suite drives the real 5-service stack, same as this project's
-      # own verification passes throughout development - no mocked backend/bff.
       - name: Bring up the full stack
         run: docker compose -f infra/docker-compose.yml up -d --build
 
       - name: Wait for backend, bff, and frontend to answer
-        # Ports here are docker-compose's own defaults (WEB_PORT=3000, BFF_PORT=4000)
-        # — a fresh CI checkout has no infra/.env to remap them.
         run: |
           for i in $(seq 1 60); do
             if curl -sf http://localhost:8080/actuator/health >/dev/null 2>&1 \

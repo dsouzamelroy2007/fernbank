@@ -24,8 +24,6 @@ jobs:
         with:
           languages: ${{ matrix.language }}
 
-      # Java needs a real build so CodeQL can trace through generated/annotation-
-      # processed code (MapStruct); JS/TS is interpreted, no build step needed.
       - if: matrix.language == 'java-kotlin'
         uses: actions/setup-java@v4
         with:
@@ -35,9 +33,6 @@ jobs:
         working-directory: backend
         run: ./gradlew compileJava compileTestJava --no-daemon
 
-      # Code scanning's Security-tab upload needs GitHub Advanced Security, which is
-      # free on public repos but not on private ones. This flips automatically once
-      # the repo goes public - no need to remember to change it back.
       - uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
@@ -79,8 +74,6 @@ jobs:
           severity: CRITICAL,HIGH
           exit-code: "0"
 
-      # Same GHAS limitation as the CodeQL job above - flips automatically once the
-      # repo goes public.
       - if: github.event.repository.private == false
         uses: github/codeql-action/upload-sarif@v4
         with:

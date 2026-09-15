@@ -18,8 +18,6 @@ RUN npm ci --omit=dev
 COPY --from=build --chown=appuser:appgroup /app/dist ./dist
 USER appuser
 EXPOSE 4000
-# node's global fetch (Node 18+) instead of curl/wget - alpine doesn't ship curl, and
-# this avoids adding either package just for a healthcheck.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["node", "-e", "fetch('http://localhost:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
 CMD ["node", "dist/main.js"]

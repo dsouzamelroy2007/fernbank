@@ -37,17 +37,9 @@ dependencies {
 	annotationProcessor("org.mapstruct:mapstruct-processor:1.6.3")
 	implementation("com.bucket4j:bucket4j-core:8.10.1")
 	implementation("commons-codec:commons-codec:1.22.0")
-	// Statement PDF export: low-level content-stream API, no HTML/CSS templating engine.
 	implementation("org.apache.pdfbox:pdfbox:3.0.3")
 	runtimeOnly("org.postgresql:postgresql")
 	runtimeOnly("org.bouncycastle:bcprov-jdk18on:1.80")
-	// Spring Boot 4.0.8's BOM still pins Tomcat 11.0.24, which is not yet patched for
-	// nine CVSS >= 7 CVEs disclosed 2026-08-25 (several 9.x, including an auth-bypass
-	// and an incomplete-fix-for-a-prior-CVE input validation issue) - see
-	// tomcat.apache.org/security-11.html's "Fixed in Apache Tomcat 11.0.25" section.
-	// Explicit versions here override the BOM's transitive ones. Patch-level Tomcat
-	// bump only (11.0.24 -> 11.0.25, security fixes only, no API changes) - full test
-	// suite verified green against it.
 	implementation("org.apache.tomcat.embed:tomcat-embed-core:11.0.25")
 	implementation("org.apache.tomcat.embed:tomcat-embed-el:11.0.25")
 	implementation("org.apache.tomcat.embed:tomcat-embed-websocket:11.0.25")
@@ -81,10 +73,6 @@ val jacocoCoverageExclusions = listOf(
 	"**/security/JwtConfig.class",
 	"**/security/SecurityConfig.class",
 	"**/security/PasswordEncoderConfig.class",
-	// Ops bootstrap glue, not domain logic - it only orchestrates calls into already
-	// -tested services (AuthenticationService, OpenAccountService, ...) and is
-	// verified functionally against the real docker-compose stack (fresh seed +
-	// restart-idempotent), same reasoning as config/controller exclusions above.
 	"**/demo/**",
 )
 
@@ -99,9 +87,6 @@ tasks.jacocoTestReport {
 	reports {
 		xml.required = true
 		html.required = true
-		// cicirello/jacoco-badge-generator (backend-ci.yml) reads this CSV to compute the
-		// README coverage badge - without it the badge-generation step fails with
-		// "No JaCoCo csv reports found" even though the actual test run passed.
 		csv.required = true
 	}
 	excludeNonServiceCode()
@@ -157,18 +142,6 @@ dependencyCheck {
 	formats = listOf("HTML", "JSON")
 	suppressionFile = "config/dependency-check/suppressions.xml"
 	nvd.apiKey = System.getenv("NVD_API_KEY") ?: ""
-	// Scan only what actually ships at runtime - not build-tool-only classpaths like
-	// checkstyle/jacocoAgent/annotationProcessor, which pull in their own transitive
-	// dependencies (e.g. Checkstyle's own commons-beanutils/httpclient5) that never run
-	// as part of this application and would otherwise show up as false "app" findings.
-	// productionRuntimeClasspath (Spring Boot's own "what ships" configuration), not
-	// plain runtimeClasspath - the plugin's own test-configuration heuristic
-	// misclassifies runtimeClasspath here (its extendsFrom chain reaches
-	// testAndDevelopmentOnly) and silently skips it, scanning nothing.
 	scanConfigurations = listOf("productionRuntimeClasspath")
-	// Sonatype OSS Index is a supplementary check on top of the NVD data above; it now
-	// returns 401 Unauthorized for anonymous requests (requires its own separate
-	// account/token), which isn't worth requiring for this project on top of NVD's own
-	// key. NVD is the CVE database Phase 5 actually asked for.
 	analyzers.ossIndex.enabled = false
 }

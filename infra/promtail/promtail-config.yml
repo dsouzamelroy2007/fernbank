@@ -8,10 +8,6 @@ positions:
 clients:
   - url: http://loki:3100/loki/api/v1/push
 
-# Discovers every container on the compose network via the (read-only) Docker socket -
-# no per-service log config needed, and no host-level Docker logging-driver plugin to
-# install. Labels each stream by its compose service name so Grafana/Loki queries can
-# filter with {service="backend"} etc.
 scrape_configs:
   - job_name: docker
     docker_sd_configs:

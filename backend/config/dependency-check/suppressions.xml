@@ -1,16 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
 
-	<!--
-	Both the postgresql (42.7.11 -> CVE-2026-54291) and embedded-tomcat (11.0.22 -> six
-	CVEs) suppressions that used to live here were resolved by the Spring Boot 4.0.8
-	upgrade + explicit tomcat-embed-* 11.0.25 override in backend/build.gradle.kts, not
-	by suppression - removed once the scan confirmed a clean pass at the new versions,
-	per each suppression's own "stops matching the moment the driver is upgraded" exit
-	condition. See build.gradle.kts's comment on the tomcat-embed-* dependencies for the
-	full reasoning (nine newer CVEs, several CVSS 9.x, only fixed in Tomcat 11.0.25).
-	-->
-
 	<suppress>
 		<notes><![CDATA[
 		CVE-2026-65898 (CVSS >= 7) in DOMPurify 3.2.4, bundled inside the Swagger UI

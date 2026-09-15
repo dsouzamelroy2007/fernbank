@@ -14,11 +14,6 @@ RUN npm run build
 FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production
-# Next's standalone server.js binds to os.hostname()'s resolved address unless told
-# otherwise - inside Docker that's the container's own network IP, not 0.0.0.0, so
-# anything hitting it via localhost/127.0.0.1 from inside the same container
-# (the HEALTHCHECK below) gets ECONNREFUSED even though the host-mapped port works
-# fine from outside. Binding explicitly to 0.0.0.0 fixes both.
 ENV HOSTNAME=0.0.0.0
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --from=build /app/public ./public
