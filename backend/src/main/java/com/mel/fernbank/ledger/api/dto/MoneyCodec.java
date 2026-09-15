@@ -6,12 +6,6 @@ import java.math.RoundingMode;
 import java.util.Currency;
 import org.springframework.stereotype.Component;
 
-/**
- * Converts between the domain's minor-units {@link Money} and the decimal-string
- * {@link MoneyDto} used over the wire. {@code RoundingMode.UNNECESSARY} in
- * {@link #toDomain} rejects any amount with more fractional digits than the currency
- * allows (e.g. "10.001" for USD) rather than silently rounding it.
- */
 @Component
 public class MoneyCodec {
 

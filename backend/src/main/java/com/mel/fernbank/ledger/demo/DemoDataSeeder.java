@@ -22,22 +22,6 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
-/**
- * Fills a fresh {@code demo} environment with a handful of real customers, accounts,
- * and transactions - run through the same domain services the API uses (
- * {@link AuthenticationService}, {@link OpenAccountService}, {@link
- * DepositWithdrawService}, {@link TransferService}), not hand-written SQL, so every
- * seeded balance is an honestly double-entry outcome rather than a row that could drift
- * from the ledger invariant. Idempotent by construction: {@link
- * AuthenticationService#register} throws {@link EmailAlreadyRegisteredException} on a
- * repeat run, which this treats as "this customer's whole seed sequence already
- * happened" and skips it entirely - restarting the compose stack never double-seeds.
- *
- * <p>Every {@code createdAt} on a transaction/ledger entry is set by the domain layer to
- * "now" (see {@code Transaction}) - there's no supported way to backdate a seeded
- * transaction to look like it happened months ago, so this seeds a realistic *count and
- * variety* of activity instead of literal historical dates.
- */
 @Component
 @Profile("demo")
 public class DemoDataSeeder implements ApplicationRunner {

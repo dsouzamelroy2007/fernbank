@@ -11,12 +11,6 @@ import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Encrypts {@link User#getMfaSecret()} at rest with AES-GCM. The key comes from
- * {@code MFA_SECRET_ENCRYPTION_KEY} (base64-encoded 32 bytes); if unset, an ephemeral
- * key is generated at class-load time — a dev/test convenience matching the JWT signing
- * key's fallback behavior (secrets encrypted with it won't decrypt after a restart).
- */
 @Converter
 public class MfaSecretConverter implements AttributeConverter<String, String> {
 
@@ -62,17 +56,6 @@ public class MfaSecretConverter implements AttributeConverter<String, String> {
 			byte[] plaintext = cipher.doFinal(combined, iv.length, combined.length - iv.length);
 			return new String(plaintext, StandardCharsets.UTF_8);
 		} catch (Exception e) {
-			// An encryption-key rotation (planned, or this class's own ephemeral-key
-			// dev/demo fallback regenerating on restart) makes a previously-encrypted
-			// secret permanently undecryptable. This converter runs at row-hydration
-			// time, before any caller-specific null check gets a chance to run - left
-			// unhandled, this throws for EVERY query touching the row, not just
-			// MFA-specific ones (a real production incident: one stale secret can 500
-			// a user's login, or even crash an ApplicationRunner that merely looks the
-			// row up). Every caller of getMfaSecret() already treats a null secret as
-			// "MFA broken, reject the challenge" (see AuthenticationService#stepUp,
-			// MfaService#verify) - degrading to null here is a safe fallback onto an
-			// already-handled case, not a new invariant to wire up.
 			log.warn("Failed to decrypt an MFA secret - treating as absent (likely an encryption-key rotation)", e);
 			return null;
 		}

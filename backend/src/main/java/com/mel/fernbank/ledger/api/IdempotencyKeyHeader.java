@@ -7,13 +7,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Documents the {@code Idempotency-Key} header shared by every mutating endpoint
- * (CONTRIBUTING.md's idempotency non-negotiable): a client-generated key where the same key
- * with the same request body replays the original response, and the same key with a
- * different body is a 409. Kept as one meta-annotation so the description/example isn't
- * repeated on every {@code @RequestHeader("Idempotency-Key")} parameter.
- */
 @Target(ElementType.PARAMETER)
 @Retention(RetentionPolicy.RUNTIME)
 @io.swagger.v3.oas.annotations.Parameter(

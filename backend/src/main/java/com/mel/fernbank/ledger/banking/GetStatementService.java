@@ -17,15 +17,9 @@ import org.springframework.data.domain.Window;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Cursor pagination via Spring Data's keyset {@link Window}/{@link ScrollPosition} API
- * (current for this Spring Data generation) rather than OFFSET-based paging, which
- * degrades on large statements.
- */
 @Service
 public class GetStatementService {
 
-	/** Row cap for the unpaginated CSV/PDF export path - narrow the date range past this. */
 	private static final int MAX_EXPORT_ROWS = 10_000;
 
 	private final LedgerEntryRepository ledgerEntryRepository;
@@ -51,11 +45,6 @@ public class GetStatementService {
 		return new StatementPage(entries, nextCursor, window.hasNext());
 	}
 
-	/**
-	 * Unpaginated read of a full date range for CSV/PDF export. Capped at
-	 * {@link #MAX_EXPORT_ROWS} to avoid an unbounded query - throws
-	 * {@link StatementRangeTooLargeException} rather than silently truncating.
-	 */
 	@Transactional(readOnly = true)
 	public List<StatementEntry> getFullStatement(UUID accountId, Instant from, Instant to) {
 		List<LedgerEntry> entries =

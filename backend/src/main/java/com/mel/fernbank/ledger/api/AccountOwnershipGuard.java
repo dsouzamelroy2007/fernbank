@@ -6,13 +6,6 @@ import com.mel.fernbank.ledger.repository.AccountRepository;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
-/**
- * Every controller that takes a client-supplied {@code accountId} must resolve the
- * account through this guard, never through {@link AccountRepository} directly.
- * Missing and not-owned both throw the same {@link AccountNotFoundException} (mapped to
- * 404) - cross-customer access must not be distinguishable from "doesn't exist"
- * (see CONTRIBUTING.md).
- */
 @Component
 public class AccountOwnershipGuard {
 

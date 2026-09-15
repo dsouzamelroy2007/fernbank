@@ -16,7 +16,6 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Component;
 
-/** Everything that creates or reads one of this app's JWTs or refresh tokens. */
 @Component
 public class TokenIssuer {
 

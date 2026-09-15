@@ -17,15 +17,6 @@ import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.springframework.stereotype.Component;
 
-/**
- * Renders a statement as CSV or PDF for the export endpoint - a wire-format concern,
- * not business logic, hence living alongside the DTOs/mappers in {@code api} rather
- * than {@code banking}. The PDF is a hand-drawn table via PDFBox's low-level content
- * stream API (no HTML/CSS templating engine) - plainer output, smaller dependency
- * footprint. Standard14 fonts only support WinAnsi-range text; a description containing
- * characters outside that range would fail to render - acceptable for this educational
- * project's scope.
- */
 @Component
 public class StatementExportService {
 

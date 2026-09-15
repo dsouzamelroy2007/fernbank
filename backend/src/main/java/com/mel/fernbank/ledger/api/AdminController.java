@@ -34,7 +34,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** The admin surface: proves method security works end to end, plus freeze/audit-log access. */
 @RestController
 @RequestMapping("/api/v1/admin")
 @Tag(name = "Admin")

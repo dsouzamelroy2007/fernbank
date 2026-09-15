@@ -49,9 +49,6 @@ public class SecurityConfig {
 				.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health", "/actuator/health/**")
 						.permitAll()
-						// Prometheus has no OAuth2/JWT client-credentials flow to authenticate with, so
-						// this one path accepts HTTP Basic instead of (not in addition to relaxing)
-						// the ADMIN-JWT gate every other /actuator/** path keeps below.
 						.requestMatchers("/actuator/prometheus")
 						.hasRole("PROMETHEUS")
 						.anyRequest()

@@ -16,12 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-/**
- * Holds the RSA keypair used to sign and verify this app's JWTs. Loaded from
- * {@code JWT_PRIVATE_KEY}/{@code JWT_PUBLIC_KEY} PEM env vars if set; otherwise an
- * ephemeral 2048-bit keypair is generated at startup — fine for dev/test, but tokens
- * won't survive a restart.
- */
 @Component
 public class JwtKeys {
 

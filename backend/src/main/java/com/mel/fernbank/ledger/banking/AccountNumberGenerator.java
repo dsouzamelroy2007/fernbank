@@ -5,12 +5,6 @@ import java.math.BigInteger;
 import java.security.SecureRandom;
 import org.springframework.stereotype.Component;
 
-/**
- * Generates IBAN-shaped account numbers: "FB" + ISO 7064 MOD 97-10 check digits + a
- * random 16-digit BBAN. Real IBAN structure and checksum (not just a random string with
- * an "FB" prefix) - {@link #isValidChecksum} round-trips against the same algorithm real
- * IBAN validators use.
- */
 @Component
 public class AccountNumberGenerator {
 
@@ -63,13 +57,6 @@ public class AccountNumberGenerator {
 		return sb.toString();
 	}
 
-	/**
-	 * A=10 ... Z=35, digits unchanged - the standard ISO 7064 letter-to-number mapping.
-	 * Deliberately not a ternary: {@code cond ? Character.getNumericValue(c) : c} would
-	 * apply Java's numeric promotion to the whole expression (int vs char operands),
-	 * silently widening digit characters to their ASCII *code point* (e.g. '5' -> 53)
-	 * instead of passing them through as the digit 5.
-	 */
 	private static String toNumericString(String input) {
 		StringBuilder sb = new StringBuilder();
 		for (char c : input.toCharArray()) {

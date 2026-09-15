@@ -70,13 +70,6 @@ public class AuthController {
 		return authenticationService.login(request.email(), request.password(), resolveClientIp(servletRequest));
 	}
 
-	/**
-	 * The bff is this endpoint's only intended caller, but its public URL is directly
-	 * reachable by anyone - so X-Forwarded-For is only trusted when paired with the
-	 * shared internal-service-key header, never on its own. Otherwise any caller could
-	 * forge a fresh IP per request and dodge LoginRateLimiter's per-(IP, email) lockout
-	 * entirely.
-	 */
 	private String resolveClientIp(HttpServletRequest servletRequest) {
 		String presentedKey = servletRequest.getHeader(INTERNAL_SERVICE_KEY_HEADER);
 		String forwardedFor = servletRequest.getHeader(FORWARDED_FOR_HEADER);

@@ -13,12 +13,6 @@ import org.apache.commons.codec.binary.Base32;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriUtils;
 
-/**
- * RFC 6238 TOTP (HMAC-SHA1, 6 digits, 30s step), hand-rolled rather than pulling in a
- * library whose main value is QR *image* generation we don't need (see ADR/plan notes)
- * — {@link #hotp} is verified against the RFC 6238 Appendix B test vectors in
- * {@code TotpServiceTest}.
- */
 @Service
 public class TotpService {
 

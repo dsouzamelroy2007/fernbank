@@ -8,12 +8,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 
-/**
- * Resolves the authenticated principal's {@code customerId} from the JWT {@code sub}
- * claim (a user id) - the one and only source of identity every resource lookup in this
- * package must use. Never trust a client-supplied {@code customerId}/{@code accountId}
- * to imply access (see CONTRIBUTING.md).
- */
 @Component
 public class CurrentCustomerResolver {
 

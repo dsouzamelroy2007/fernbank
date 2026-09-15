@@ -34,13 +34,6 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-/**
- * Global RFC 9457 Problem Details error mapping for the whole API. Replaces Phase 2's
- * package-scoped {@code auth.AuthExceptionHandler}. Every response carries a
- * {@code correlationId} extension property (set by {@link CorrelationIdFilter}) and
- * never leaks a stack trace or SQL - unmapped exceptions are logged server-side and
- * returned as an opaque 500.
- */
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
@@ -66,12 +59,6 @@ public class ApiExceptionHandler {
 		return problem(HttpStatus.CONFLICT, "email-already-registered", e.getMessage(), request);
 	}
 
-	/**
-	 * Backstop for a unique-constraint violation that races past a service-level
-	 * check-then-act guard (e.g. two concurrent registrations with the same email) -
-	 * the constraint is the real backstop, this just gives it a 409 instead of an
-	 * opaque 500. Deliberately generic: doesn't attempt to name which constraint fired.
-	 */
 	@ExceptionHandler(DataIntegrityViolationException.class)
 	public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException e, HttpServletRequest request) {
 		return problem(HttpStatus.CONFLICT, "conflict", "The request conflicts with existing data", request);

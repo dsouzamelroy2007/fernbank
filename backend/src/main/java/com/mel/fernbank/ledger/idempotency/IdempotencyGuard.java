@@ -15,16 +15,6 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import org.springframework.stereotype.Component;
 
-/**
- * Reusable Idempotency-Key enforcement for any write operation, not just banking's -
- * hence its own top-level package rather than living inside {@code banking}.
- *
- * <p>Boot 4's Jackson auto-configuration only produces the new Jackson 3 {@code
- * tools.jackson} {@code JsonMapper}, not a classic {@code com.fasterxml.jackson}
- * {@code ObjectMapper} bean (verified while building this) - a local {@code
- * ObjectMapper} is constructed here rather than adopting the new API for one small
- * internal utility.
- */
 @Component
 public class IdempotencyGuard {
 
@@ -32,9 +22,6 @@ public class IdempotencyGuard {
 
 	private final IdempotencyRecordRepository idempotencyRecordRepository;
 	private final AppMetrics appMetrics;
-	// Money (and similar hand-written value objects) expose record-style accessors like
-	// minorUnits() rather than getMinorUnits(), which Jackson's default getter-based
-	// introspection won't see - read/write fields directly instead.
 	private final ObjectMapper objectMapper = new ObjectMapper()
 			.registerModule(new JavaTimeModule())
 			.setVisibility(PropertyAccessor.FIELD, Visibility.ANY)

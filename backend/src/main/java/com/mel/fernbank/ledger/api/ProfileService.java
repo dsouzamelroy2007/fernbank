@@ -9,10 +9,6 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Resolves the caller's own profile from the authenticated principal's id — never from
- * a client-supplied id. The pattern every future resource lookup (Phase 4+) must follow.
- */
 @Service
 public class ProfileService {
 

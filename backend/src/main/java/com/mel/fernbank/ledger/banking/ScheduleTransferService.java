@@ -47,11 +47,6 @@ public class ScheduleTransferService {
 		if (!source.getCurrency().equals(destination.getCurrency())) {
 			throw new CurrencyMismatchException(source.getCurrency(), destination.getCurrency());
 		}
-		// Best-effort only, not a real hold: nothing stops the source balance from
-		// being spent elsewhere between now and scheduledFor, so ScheduledTransferRunner
-		// can still see InsufficientFundsException at execution time regardless of this
-		// check. This just rejects the common case (scheduling more than you have)
-		// immediately instead of silently accepting it and failing days later.
 		AccountBalance sourceBalance = accountBalanceRepository
 				.findById(source.getId())
 				.orElseThrow(() -> new AccountNotFoundException(source.getId()));

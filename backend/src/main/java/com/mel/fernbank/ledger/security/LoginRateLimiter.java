@@ -8,11 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-/**
- * In-memory Bucket4j rate limit of login attempts per (IP + email). Single-instance
- * only — a multi-instance deployment would need a distributed {@code ProxyManager}
- * (Redis/Hazelcast), out of scope here.
- */
 @Component
 public class LoginRateLimiter {
 

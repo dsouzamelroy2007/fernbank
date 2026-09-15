@@ -9,11 +9,6 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * The admin account surface. A missing account is a genuine 404 here (unlike the
- * customer-facing endpoints) - an admin is authorized to see any account, so there's no
- * existence to mask.
- */
 @Service
 public class AdminAccountService {
 

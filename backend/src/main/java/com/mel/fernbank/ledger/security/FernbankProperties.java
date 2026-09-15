@@ -25,9 +25,5 @@ public record FernbankProperties(Jwt jwt, Cors cors, Auth auth, Metrics metrics)
 			long stepUpThresholdMinorUnits,
 			String internalServiceKey) {}
 
-	/** Scrape credential for /actuator/prometheus - HTTP Basic, not the JWT resource
-	 * server, since Prometheus has no OAuth2 client-credentials flow to talk to and
-	 * this app has no service-account token issuance. Kept separate from the
-	 * hasRole("ADMIN") JWT gate on every other /actuator/** path. */
 	public record Metrics(String prometheusUser, String prometheusPassword) {}
 }

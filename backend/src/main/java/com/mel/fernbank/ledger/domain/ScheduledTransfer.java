@@ -135,10 +135,6 @@ public class ScheduledTransfer {
 		this.executedAt = Instant.now();
 	}
 
-	/** Records a failed execution attempt without changing status - stays PENDING so
-	 * {@code ScheduledTransferRunner}'s own due-transfer query picks it back up on the
-	 * next run. The caller (which owns the retry-limit policy) calls {@link
-	 * #markFailed} separately once attempts are exhausted. */
 	public void recordFailedAttempt(String reason) {
 		this.attemptCount++;
 		this.failureReason = reason;

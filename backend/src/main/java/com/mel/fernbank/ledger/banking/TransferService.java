@@ -35,9 +35,6 @@ public class TransferService {
 				command,
 				TransferResult.class,
 				() -> {
-					// A retried optimistic-lock attempt inside retryTemplate isn't a distinct transfer
-					// outcome - only the final result of the whole call (success or the exception that
-					// ultimately escapes) is counted here, mirroring the idempotency boundary above.
 					TransferResult result;
 					try {
 						result = retryTemplate.execute(() -> executor.transfer(command));

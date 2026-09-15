@@ -15,15 +15,9 @@ import org.springframework.data.domain.Window;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Cursor-paginated audit-event reads via Spring Data's keyset {@link Window}/
- * {@link ScrollPosition} API, mirroring {@code banking.GetStatementService}'s pattern.
- * Controllers must not touch {@link AuditEventRepository} directly (ArchUnit-enforced).
- */
 @Service
 public class AuditEventQueryService {
 
-	/** Auth-relevant event types surfaced by the self-service login-history endpoint. */
 	private static final Set<String> LOGIN_HISTORY_EVENT_TYPES = Set.of(
 			"auth.login_success",
 			"auth.login_failure",
@@ -50,7 +44,6 @@ public class AuditEventQueryService {
 		return new AuditEventPage(events, nextCursor, window.hasNext());
 	}
 
-	/** Self-service counterpart to {@link #page} - scoped to the caller's own login-related events. */
 	@Transactional(readOnly = true)
 	public AuditEventPage pageForUser(UUID actorUserId, Instant from, Instant to, String cursor, int pageSize) {
 		ScrollPosition position = decodeCursor(cursor);

@@ -7,11 +7,6 @@ import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.HexFormat;
 
-/**
- * Refresh tokens are high-entropy random bearer strings, not low-entropy passwords —
- * a fast SHA-256 digest is the right tool for storing them (Argon2 would only add
- * latency with no security benefit against a 256-bit-entropy value).
- */
 public final class TokenHasher {
 
 	private static final SecureRandom RANDOM = new SecureRandom();

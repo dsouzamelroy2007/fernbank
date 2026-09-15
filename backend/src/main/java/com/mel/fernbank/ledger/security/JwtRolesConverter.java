@@ -11,11 +11,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
-/**
- * Maps the {@code roles} claim to {@link GrantedAuthority}s and rejects any JWT that
- * isn't an access token — an MFA-challenge or step-up-request token must never be
- * usable as a Bearer credential against a protected API endpoint.
- */
 public class JwtRolesConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
 	static final String TOKEN_USE_CLAIM = "token_use";

@@ -7,11 +7,6 @@ import com.mel.fernbank.ledger.repository.AccountRepository;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
-/**
- * Resolves a {@link TransferRequest}'s destination to an account id, either the
- * client-supplied id directly or a lookup by account number. Controllers must not
- * touch {@link AccountRepository} directly (ArchUnit-enforced).
- */
 @Component
 public class DestinationAccountResolver {
 

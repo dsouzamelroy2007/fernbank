@@ -23,7 +23,6 @@ public class PositiveAmountValidator implements ConstraintValidator<PositiveAmou
 			return true;
 		}
 		if (!isKnownCurrency(dto.currency())) {
-			// Let @IsoCurrency on the currency field report this instead of duplicating it here.
 			return true;
 		}
 		try {

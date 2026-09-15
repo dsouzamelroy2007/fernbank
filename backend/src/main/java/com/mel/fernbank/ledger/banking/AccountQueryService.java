@@ -9,7 +9,6 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Read-only account+balance lookups. Ownership-agnostic - callers check access first. */
 @Service
 public class AccountQueryService {
 

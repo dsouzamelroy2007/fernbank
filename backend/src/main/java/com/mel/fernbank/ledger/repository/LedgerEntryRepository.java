@@ -19,7 +19,6 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> 
 	Window<LedgerEntry> findByAccountIdAndCreatedAtBetweenOrderByCreatedAtDescIdDesc(
 			UUID accountId, Instant from, Instant to, Limit limit, ScrollPosition position);
 
-	/** Unpaginated variant for CSV/PDF export - callers must cap the result size themselves. */
 	List<LedgerEntry> findByAccountIdAndCreatedAtBetweenOrderByCreatedAtDescIdDesc(UUID accountId, Instant from, Instant to);
 
 	@Query("SELECT le.amount.currencyCode, SUM(le.amount.minorUnits) FROM LedgerEntry le GROUP BY le.amount.currencyCode")

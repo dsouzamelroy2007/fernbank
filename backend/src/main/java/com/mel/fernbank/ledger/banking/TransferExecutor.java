@@ -18,14 +18,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * One attempt at an internal transfer. See {@link DepositWithdrawExecutor}'s javadoc for
- * why this is a separate bean from {@link TransferService} (fresh transaction per
- * optimistic-retry attempt) - {@code REQUIRES_NEW} specifically, not the default
- * propagation, because {@link ScheduledTransferRunner} calls this from inside its own
- * outer transaction (it holds a row lock across the batch); without REQUIRES_NEW this
- * would silently join that transaction instead of getting a fresh one per retry attempt.
- */
 @Component
 class TransferExecutor {
 
@@ -55,12 +47,6 @@ class TransferExecutor {
 			throw new InvalidAmountException(amount.minorUnits());
 		}
 		if (command.sourceAccountId().equals(command.destinationAccountId())) {
-			// Without this, the two AccountBalance fetches below resolve to the same
-			// managed JPA entity: the destination-side add() silently overwrites the
-			// source-side subtract() before either is flushed, so the debit never
-			// actually persists even though the API response (built from the two
-			// separately-computed *NewBalance values) claims it did - a real response/
-			// persisted-state mismatch, not just a meaningless no-op transfer.
 			throw new SameAccountTransferException(command.sourceAccountId());
 		}
 		if (amount.minorUnits() >= properties.auth().stepUpThresholdMinorUnits() && !command.stepUpVerified()) {

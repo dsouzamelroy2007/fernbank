@@ -12,23 +12,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Executes due scheduled transfers. {@link ScheduledTransferRepository#
- * findByStatusAndScheduledForLessThanEqual} takes a {@code PESSIMISTIC_WRITE} row lock
- * ("a DB lock", per the plan) for the duration of this method's transaction; each
- * individual transfer still gets its own fresh transaction via {@link TransferExecutor}'s
- * {@code REQUIRES_NEW}, so one failing transfer doesn't roll back the batch or the lock
- * holder's view of the others. Not safe against a second app instance racing this one
- * (would need {@code SKIP LOCKED}) - out of scope, this app runs as one instance.
- *
- * <p>{@code run()} calls {@code executeDueTransfers} through a self-injected proxy
- * ({@code self}), not {@code this} - a plain {@code this.executeDueTransfers(...)} call
- * is a self-invocation that bypasses Spring's transactional proxy entirely, silently
- * running the {@code @Lock}-annotated query with no active transaction. Direct test
- * calls to {@code executeDueTransfers} (a different caller, not a self-invocation)
- * don't hit this - which is exactly why it only surfaced running the real app, not in
- * the test suite.
- */
 @Component
 public class ScheduledTransferRunner {
 
@@ -80,9 +63,6 @@ public class ScheduledTransferRunner {
 							scheduled.getAttemptCount(),
 							e.getMessage());
 				} else {
-					// Left PENDING on purpose - findByStatusAndScheduledForLessThanEqual
-					// above already selects it again on the next tick since scheduledFor
-					// stays in the past, no extra rescheduling logic needed.
 					log.warn(
 							"Scheduled transfer {} (source={}, destination={}) failed, attempt {}/{}, will retry: {}",
 							scheduled.getId(),

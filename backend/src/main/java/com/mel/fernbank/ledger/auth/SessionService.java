@@ -9,13 +9,6 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Self-service session (refresh token) listing/revocation - the user-facing
- * counterpart to {@link AuthenticationService}'s reuse-detection-triggered family
- * revoke. There is no device/IP/user-agent column on {@link RefreshToken}, so a
- * session can't be flagged as "this device" - listing only exposes issued/expiry
- * times.
- */
 @Service
 public class SessionService {
 
@@ -32,7 +25,6 @@ public class SessionService {
 		return refreshTokenRepository.findByUserIdAndRevokedAtIsNullOrderByIssuedAtDesc(userId);
 	}
 
-	/** Idempotent - revoking an already-revoked session is a no-op, matching {@code logout()}'s style. */
 	@Transactional
 	public void revokeSession(UUID userId, UUID sessionId) {
 		RefreshToken token =

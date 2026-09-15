@@ -16,12 +16,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Two invariants that should always hold if the ledger is correct: every currency's
- * ledger entries sum to zero (summed separately per currency - summing raw minor units
- * across currencies would be meaningless even if it happened to net to zero), and every
- * account's stored balance matches the sum of its own ledger entries.
- */
 @Service
 public class ReconciliationService {
 
@@ -74,9 +68,6 @@ public class ReconciliationService {
 
 	@Scheduled(cron = "0 0 * * * *")
 	public void scheduledCheck() {
-		// self.reconcile(), not this.reconcile() - a self-invocation would bypass the
-		// @Transactional(readOnly=true) proxy (see ScheduledTransferRunner's javadoc for
-		// the same pitfall, caught there by a live run rather than the test suite).
 		ReconciliationReport report = self.reconcile();
 		if (!report.isHealthy()) {
 			auditLogger.record(

@@ -18,14 +18,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * One attempt at a deposit or withdrawal. Each public method is its own fresh
- * transaction ({@code REQUIRES_NEW} - see {@link TransferExecutor}'s javadoc for why
- * plain {@code @Transactional} isn't safe enough here), called by
- * {@link DepositWithdrawService} through {@link OptimisticRetryTemplate} so a stale
- * {@code @Version} on either balance row retries with fresh reads rather than
- * corrupting anything.
- */
 @Component
 class DepositWithdrawExecutor {
 
@@ -116,8 +108,6 @@ class DepositWithdrawExecutor {
 			accountBalanceRepository.save(new AccountBalance(account.getId(), Money.zero(currency)));
 			return account;
 		} catch (DataIntegrityViolationException e) {
-			// Lost a race against a concurrent lazy-create; the partial unique index
-			// (currency) WHERE type='SYSTEM' caught it - the other creator won.
 			return accountRepository
 					.findByTypeAndCurrency(AccountType.SYSTEM, currency)
 					.orElseThrow(() -> e);

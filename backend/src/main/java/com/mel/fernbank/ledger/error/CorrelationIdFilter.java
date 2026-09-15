@@ -10,15 +10,6 @@ import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/**
- * Assigns every request a correlation id (reused from {@code X-Correlation-Id} if the
- * caller sent one) so {@link ApiExceptionHandler} can attach it to every Problem Detail
- * response. This MDC key is also picked up automatically by structured JSON logging
- * (the {@code docker} Spring profile, see {@code application-docker.yml}) - every log
- * line emitted during a request carries the same correlation id as its HTTP response.
- * Log aggregation/visualization of this is still later-phase work (see
- * docs/PHASE_PLAN.md's observability notes) - this filter is the plumbing underneath it.
- */
 @Component
 public class CorrelationIdFilter extends OncePerRequestFilter {
 

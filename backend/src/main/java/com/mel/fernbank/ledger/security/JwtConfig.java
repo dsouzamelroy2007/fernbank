@@ -35,7 +35,6 @@ public class JwtConfig {
 		}
 	}
 
-	/** Public JWK set (private key material stripped) for {@code GET /oauth2/jwks}. */
 	@Bean
 	public List<JWK> publicJwks(JwtKeys jwtKeys) {
 		return new JWKSet(jwtKeys.rsaKey()).toPublicJWKSet().getKeys();
