@@ -74,10 +74,7 @@ public class DemoDataSeeder implements ApplicationRunner {
 			transfer(ava.checkingId(), noah.checkingId(), ava.userId(), 12500, "Split dinner bill");
 		}
 
-		log.info(
-				"Demo environment ready - sign in with any of {} / password {}",
-				DEMO_CUSTOMERS.stream().map(DemoCustomer::email).toList(),
-				DEMO_PASSWORD);
+		log.info("Demo environment ready - seeded {} demo customer profiles with the default demo password", DEMO_CUSTOMERS.size());
 	}
 
 	private record SeededAccounts(UUID userId, UUID checkingId, UUID savingsId) {}
@@ -87,7 +84,7 @@ public class DemoDataSeeder implements ApplicationRunner {
 		try {
 			user = authenticationService.register(new RegisterRequest(demo.fullName(), demo.email(), DEMO_PASSWORD));
 		} catch (EmailAlreadyRegisteredException e) {
-			log.debug("Demo customer {} already seeded, skipping", demo.email());
+			log.debug("Demo customer already seeded, skipping profile creation");
 			return null;
 		}
 

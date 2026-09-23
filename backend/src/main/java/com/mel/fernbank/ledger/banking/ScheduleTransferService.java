@@ -8,11 +8,15 @@ import com.mel.fernbank.ledger.repository.AccountBalanceRepository;
 import com.mel.fernbank.ledger.repository.AccountRepository;
 import com.mel.fernbank.ledger.repository.ScheduledTransferRepository;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ScheduleTransferService {
+
+	private static final Logger log = LoggerFactory.getLogger(ScheduleTransferService.class);
 
 	private final ScheduledTransferRepository scheduledTransferRepository;
 	private final AccountRepository accountRepository;
@@ -32,6 +36,12 @@ public class ScheduleTransferService {
 
 	@Transactional
 	public ScheduledTransfer schedule(ScheduleTransferCommand command) {
+		log.debug(
+				"Scheduling transfer: sourceAccountId={}, destinationAccountId={}, userId={}, amountMinorUnits={}",
+				command.sourceAccountId(),
+				command.destinationAccountId(),
+				command.initiatingUserId(),
+				command.amount().minorUnits());
 		if (command.amount().minorUnits() <= 0) {
 			throw new InvalidAmountException(command.amount().minorUnits());
 		}
@@ -66,6 +76,11 @@ public class ScheduleTransferService {
 				command.initiatingUserId(),
 				"account.transfer_scheduled",
 				Map.of("scheduledTransferId", scheduled.getId().toString()));
+		log.info(
+				"Scheduled transfer created: scheduledTransferId={}, sourceAccountId={}, destinationAccountId={}",
+				scheduled.getId(),
+				source.getId(),
+				destination.getId());
 
 		return scheduled;
 	}

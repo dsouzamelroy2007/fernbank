@@ -25,7 +25,7 @@ public class LoginRateLimiter {
 		Bucket bucket = buckets.computeIfAbsent(key, k -> newBucket());
 		boolean consumed = bucket.tryConsume(1);
 		if (!consumed) {
-			log.warn("Login rate limit exceeded for email={} from ip={}", email.toLowerCase(), ipAddress);
+			log.warn("Login rate limit exceeded for a request from a protected client bucket");
 		}
 		return consumed;
 	}

@@ -62,6 +62,7 @@ public class AuthenticationService {
 
 	@Transactional
 	public User register(RegisterRequest request) {
+		log.debug("Registration attempt received for customer profile");
 		if (userRepository.findByEmail(request.email()).isPresent()) {
 			throw new EmailAlreadyRegisteredException();
 		}
@@ -69,30 +70,36 @@ public class AuthenticationService {
 		User user = new User(customer.getId(), request.email(), passwordEncoder.encode(request.password()));
 		user = userRepository.save(user);
 		auditLogger.record(user.getId(), "auth.register");
+		log.info("User registered successfully: userId={}, customerId={}", user.getId(), customer.getId());
 		return user;
 	}
 
 	@Transactional
 	public LoginResponse login(String email, String password, String ipAddress) {
+		log.debug("Login attempt received for a user session");
 		if (!loginRateLimiter.tryConsume(ipAddress, email)) {
 			appMetrics.recordFailedLogin("rate_limited");
+			log.warn("Login rejected due to rate limiting for a protected client");
 			throw new RateLimitExceededException();
 		}
 
 		User user = userRepository.findByEmail(email).orElse(null);
 		if (user == null) {
-			auditLogger.record(null, "auth.login_failure", Map.of("reason", "unknown_email", "email", email));
+			auditLogger.record(null, "auth.login_failure", Map.of("reason", "unknown_email"));
 			appMetrics.recordFailedLogin("unknown_email");
+			log.warn("Login failed: unknown user");
 			throw new InvalidCredentialsException();
 		}
 		if (user.isLocked()) {
 			auditLogger.record(user.getId(), "auth.login_failure", Map.of("reason", "locked"));
 			appMetrics.recordFailedLogin("locked");
+			log.warn("Login failed: userId={} account locked", user.getId());
 			throw new InvalidCredentialsException();
 		}
 		if (user.getStatus() != UserStatus.ACTIVE) {
 			auditLogger.record(user.getId(), "auth.login_failure", Map.of("reason", "disabled"));
 			appMetrics.recordFailedLogin("disabled");
+			log.warn("Login failed: userId={} account disabled", user.getId());
 			throw new InvalidCredentialsException();
 		}
 		if (!passwordEncoder.matches(password, user.getPasswordHash())) {
@@ -100,6 +107,7 @@ public class AuthenticationService {
 			userRepository.save(user);
 			auditLogger.record(user.getId(), "auth.login_failure", Map.of("reason", "bad_password"));
 			appMetrics.recordFailedLogin("bad_password");
+			log.warn("Login failed: invalid credentials for userId={}", user.getId());
 			throw new InvalidCredentialsException();
 		}
 
@@ -108,11 +116,13 @@ public class AuthenticationService {
 
 		if (user.isMfaEnabled()) {
 			auditLogger.record(user.getId(), "auth.login_mfa_challenge_issued");
+			log.info("MFA challenge issued for userId={}", user.getId());
 			return LoginResponse.mfaRequired(tokenIssuer.issueMfaChallengeToken(user));
 		}
 
 		auditLogger.record(user.getId(), "auth.login_success");
 		TokenIssuer.TokenPair tokens = tokenIssuer.issueTokenPair(user);
+		log.info("User authenticated successfully: userId={}", user.getId());
 		return LoginResponse.authenticated(tokens.accessToken(), tokens.refreshToken());
 	}
 
@@ -144,6 +154,7 @@ public class AuthenticationService {
 
 		String access = tokenIssuer.issueAccessToken(user, null);
 		auditLogger.record(user.getId(), "auth.refresh");
+		log.info("Refresh token rotated successfully for userId={}", user.getId());
 		return new TokenIssuer.TokenPair(access, issued.rawToken());
 	}
 
@@ -155,6 +166,7 @@ public class AuthenticationService {
 				token.revoke(null);
 				refreshTokenRepository.save(token);
 				auditLogger.record(token.getUserId(), "auth.logout");
+				log.debug("Session revoked for userId={}", token.getUserId());
 			}
 		});
 	}
@@ -164,9 +176,11 @@ public class AuthenticationService {
 		User user = userRepository.findById(userId).orElseThrow(InvalidCredentialsException::new);
 		if (!user.isMfaEnabled() || user.getMfaSecret() == null || !totpService.verifyCode(user.getMfaSecret(), code)) {
 			auditLogger.record(userId, "auth.step_up_failure");
+			log.warn("MFA step-up failed for userId={}", userId);
 			throw new InvalidMfaChallengeException();
 		}
 		auditLogger.record(userId, "auth.step_up_success");
+		log.info("MFA step-up succeeded for userId={}", userId);
 		return tokenIssuer.issueElevatedAccessToken(user);
 	}
 
@@ -175,11 +189,13 @@ public class AuthenticationService {
 		User user = userRepository.findById(userId).orElseThrow(InvalidCredentialsException::new);
 		if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
 			auditLogger.record(userId, "auth.password_change_failure");
+			log.warn("Password change failed for userId={}", userId);
 			throw new WrongPasswordException();
 		}
 		user.setPasswordHash(passwordEncoder.encode(newPassword));
 		userRepository.save(user);
 		auditLogger.record(userId, "auth.password_change_success");
+		log.info("Password changed successfully for userId={}", userId);
 	}
 
 	private void revokeFamily(UUID familyId) {
