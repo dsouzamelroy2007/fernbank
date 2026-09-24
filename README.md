@@ -187,6 +187,9 @@ tracing, hosted production observability, a true fund-reservation on scheduled
 transfers, cross-currency transfers, and horizontal BFF scaling are all scoped out on
 purpose. Full reasoning for each: [docs/ROADMAP.md](docs/ROADMAP.md).
 
+See [docs/FUTURE_PLAN.md](docs/FUTURE_PLAN.md) for proposed future features and priorities.
+
+
 ## Non-negotiables
 
 See [CONTRIBUTING.md](CONTRIBUTING.md#non-negotiables) for the rules this codebase is
